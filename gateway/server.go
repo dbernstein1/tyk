@@ -620,6 +620,7 @@ func (gw *Gateway) loadControlAPIEndpoints(muxer *mux.Router) {
 	// set up main API handlers
 	r.HandleFunc("/reload/group", gw.groupResetHandler).Methods("GET")
 	r.HandleFunc("/reload", gw.resetHandler(nil)).Methods("GET")
+	r.HandleFunc("/hotreload", gw.hotReloadHandler).Methods("GET")
 
 	if !gw.isRPCMode() {
 		versionsHandler := NewVersionHandler(gw.getAPIDefinition)

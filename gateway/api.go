@@ -41,6 +41,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -1941,6 +1942,16 @@ func (gw *Gateway) resetHandler(fn func()) http.HandlerFunc {
 		}).Info("Reload URL Structure - Scheduled")
 		wg.Wait()
 		doJSONWrite(w, http.StatusOK, apiOk(""))
+	}
+}
+
+func (gw *Gateway) hotReloadHandler(w http.ResponseWriter, r *http.Request) {
+	log.WithFields(logrus.Fields{
+		"prefix": "api",
+	}).Info("Triggering Hot Reload")
+	doJSONWrite(w, http.StatusOK, apiOk(""))
+	if err := syscall.Kill(hostDetails.PID, syscall.SIGUSR2); err != nil {
+		log.Error("Process reload failed: ", err)
 	}
 }
 
