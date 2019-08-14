@@ -50,6 +50,7 @@ import (
 	"github.com/TykTechnologies/tyk/regexp"
 	"github.com/TykTechnologies/tyk/rpc"
 	"github.com/TykTechnologies/tyk/storage"
+	"github.com/garyburd/redigo/redis"
 )
 
 // const used by cache middleware
@@ -579,7 +580,33 @@ func (a APIDefinitionLoader) FromRPC(orgId string, gw *Gateway) ([]*APISpec, err
 	return a.processRPCDefinitions(apiCollection, gw)
 }
 
-func (a APIDefinitionLoader) processRPCDefinitions(apiCollection string, gw *Gateway) ([]*APISpec, error) {
+func (a APIDefinitionLoader) FromRedis(db config.RedisDBAppConfOptionsConfig) ([]*APISpec, error) {
+	var specs []*APISpec
+	c := RedisPool.Get()
+	defer c.Close()
+	log.Info("Loading API Specification from redis")
+
+	// Load API Definition from Redis DB
+	apiKeys, err := redis.Strings(c.Do("KEYS", "*"))
+	if err != nil {
+		log.Error("Couldn't get api definition from redis db: ", err)
+	}
+	var count = 0
+	for _, v := range apiKeys {
+		//Skip loading JWT-KEY keys
+		if !strings.HasPrefix(v, "JWT-KEY-") {
+			count++
+			apiDefinition, _ := redis.String(c.Do("GET", v))
+			def := a.ParseDefinition(strings.NewReader(apiDefinition))
+			spec := a.MakeSpec(def, nil)
+			specs = append(specs, spec)
+		}
+	}
+	log.Info("Found APIs: ", count)
+	return specs, nil
+}
+
+func (a APIDefinitionLoader) processRPCDefinitions(apiCollection string) ([]*APISpec, error) {
 
 	var payload []nestedApiDefinition
 	if err := json.Unmarshal([]byte(apiCollection), &payload); err != nil {

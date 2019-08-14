@@ -1944,6 +1944,28 @@ func (gw *Gateway) resetHandler(fn func()) http.HandlerFunc {
 	}
 }
 
+func (gw *Gateway) hotReloadHandler(w http.ResponseWriter, r *http.Request) {
+	m.Lock()
+	defer m.Unlock()
+
+	log.WithFields(logrus.Fields{
+		"prefix": "api",
+	}).Info("Triggering Restart")
+	doJSONWrite(w, http.StatusOK, apiOk(""))
+	time.Sleep(2 * time.Second)
+	// if err := syscall.Kill(hostDetails.PID, syscall.SIGUSR2); err != nil {
+	// 	log.Error("Process reload failed: ", err)
+	// }
+	os.Exit(0)
+}
+
+func (gw *Gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
+	log.WithFields(logrus.Fields{
+		"prefix": "api",
+	}).Info("received /health probe")
+	doJSONWrite(w, http.StatusOK, apiOk(""))
+}
+
 func (gw *Gateway) createKeyHandler(w http.ResponseWriter, r *http.Request) {
 	newSession := new(user.SessionState)
 	if err := json.NewDecoder(r.Body).Decode(newSession); err != nil {

@@ -16,6 +16,11 @@ func (t *TrackEndpointMiddleware) Name() string {
 }
 
 func (t *TrackEndpointMiddleware) EnabledForSpec() bool {
+	//Override the endpoint tracking behavior
+	if t.Spec.GlobalConfig.EnableAnalytics && t.Spec.GlobalConfig.EnableGenericEndpointAnalytics {
+		return true
+	}
+
 	if !t.Spec.GlobalConfig.EnableAnalytics || t.Spec.DoNotTrack {
 		return false
 	}
@@ -38,9 +43,19 @@ func (t *TrackEndpointMiddleware) ProcessRequest(w http.ResponseWriter, r *http.
 		ctxSetTrackedPath(r, metaTrack.(*apidef.TrackEndpointMeta).Path)
 	}
 
-	foundDnTrack, _ := t.Spec.CheckSpecMatchesStatus(r, versionPaths, RequestNotTracked)
-	if foundDnTrack {
-		ctxSetDoNotTrack(r, true)
+	//Override the tracking path
+	if t.Spec.GlobalConfig.EnableGenericEndpointAnalytics {
+		ctxSetTrackedPath(r, r.URL.Path)
+	} else {
+		foundTracked, metaTrack := t.Spec.CheckSpecMatchesStatus(r, versionPaths, RequestTracked)
+		if foundTracked {
+			ctxSetTrackedPath(r, metaTrack.(*apidef.TrackEndpointMeta).Path)
+		}
+
+		foundDnTrack, _ := t.Spec.CheckSpecMatchesStatus(r, versionPaths, RequestNotTracked)
+		if foundDnTrack {
+			ctxSetDoNotTrack(r, true)
+		}
 	}
 
 	return nil, http.StatusOK

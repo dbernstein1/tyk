@@ -22,11 +22,14 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
 	"github.com/jensneuse/abstractlogger"
@@ -280,6 +283,19 @@ func (gw *Gateway) TykNewSingleHostReverseProxy(target *url.URL, spec *APISpec, 
 			req.Host = targetToUse.Host
 		}
 
+		//Cisco change
+		if len(spec.Proxy.UpdateHostHeader) > 0 {
+			//Normalize header
+			log.Debug("Detected UpdateHostHeader ", spec.Proxy.UpdateHostHeader)
+			header := textproto.CanonicalMIMEHeaderKey(spec.Proxy.UpdateHostHeader)
+			log.Debug("CanonicalMIMEHeaderKey form ", spec.Proxy.UpdateHostHeader)
+			updateHost, ok := req.Header[header]
+			if ok {
+				log.Debug("Updating upstream host", updateHost[0])
+				req.Host = updateHost[0]
+			}
+		}
+
 		if targetQuery == "" || req.URL.RawQuery == "" {
 			req.URL.RawQuery = targetQuery + req.URL.RawQuery
 		} else {
@@ -377,6 +393,7 @@ type ReverseProxy struct {
 }
 
 func (p *ReverseProxy) defaultTransport(dialerTimeout float64) *http.Transport {
+	log.Debug("defaultTransport dialerTimeout: ", dialerTimeout)
 	timeout := 30.0
 	if dialerTimeout > 0 {
 		log.Debug("Setting timeout for outbound request to: ", dialerTimeout)
@@ -401,7 +418,7 @@ func (p *ReverseProxy) defaultTransport(dialerTimeout float64) *http.Transport {
 		DialContext:           dialContextFunc,
 		MaxIdleConns:          p.Gw.GetConfig().MaxIdleConns,
 		MaxIdleConnsPerHost:   p.Gw.GetConfig().MaxIdleConnsPerHost, // default is 100
-		ResponseHeaderTimeout: time.Duration(dialerTimeout) * time.Second,
+		ResponseHeaderTimeout: time.Duration(0) * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 	}
 
@@ -530,6 +547,21 @@ func (p *ReverseProxy) CheckHardTimeoutEnforced(spec *APISpec, req *http.Request
 	}
 
 	return false, spec.GlobalConfig.ProxyDefaultTimeout
+}
+
+//Cisco change
+func (p *ReverseProxy) GetTimeoutFromProxyHeader(spec *APISpec, req *http.Request, inTimeout float64) float64 {
+	proxyTimeoutHeaderName := textproto.CanonicalMIMEHeaderKey(spec.Proxy.NDProxyTimeoutHeader)
+	proxyTimeout, ok := req.Header[proxyTimeoutHeaderName]
+	if ok {
+		timeout, err := strconv.ParseInt(proxyTimeout[0], 10, 32)
+		if err == nil {
+			log.Debug("setting proxy timeout value from header")
+			return float64(timeout)
+		}
+	}
+
+	return inTimeout
 }
 
 func (p *ReverseProxy) CheckHeaderInRemoveList(hdr string, spec *APISpec, req *http.Request) bool {
@@ -1143,6 +1175,74 @@ func (p *ReverseProxy) sendRequestToUpstream(roundTripper *TykRoundTripper, outr
 	return roundTripper.RoundTrip(outreq)
 }
 
+func (p *ReverseProxy) verifyRootCA(tlsConfig *tls.Config, host string) {
+	tlsConfig.InsecureSkipVerify = true
+
+	// if verifyPeerCertificate was set previously, make sure it is also executed
+	//prevFunc := tlsConfig.VerifyPeerCertificate
+	tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		// if prevFunc != nil {
+		// 	err := prevFunc(rawCerts, verifiedChains)
+		// 	if err != nil {
+		// 		log.Error("Failed to verify server certificate: " + err.Error())
+		// 		return err
+		// 	}
+		// }
+		// followed https://github.com/golang/go/issues/21971#issuecomment-332693931
+		certs := make([]*x509.Certificate, len(rawCerts))
+		for i, asn1Data := range rawCerts {
+			cert, err := x509.ParseCertificate(asn1Data)
+			if err != nil {
+				return errors.New("failed to parse certificate from server: " + err.Error())
+			}
+			certs[i] = cert
+		}
+
+		if p.TykAPISpec.Proxy.Transport.SSLForceRootCACheck && p.Gw.GetConfig().SSLForceRootCACheck {
+			roots := x509.NewCertPool()
+			//Read RootCA and Validate
+			rootCert := p.TykAPISpec.Proxy.Transport.SSLRootCACert
+
+			if rootCert == "" {
+				rootCert = p.Gw.GetConfig().SSLRootCACert
+			}
+			log.Debug("rootca path: " + rootCert)
+			rootCA, err := ioutil.ReadFile(rootCert)
+			if err != nil {
+				return errors.New("invalid rootca  " + rootCert)
+			}
+
+			ok := roots.AppendCertsFromPEM([]byte(rootCA))
+			if !ok {
+				return errors.New("invalid rootca - Counld not decode rootCA: " + rootCert)
+			}
+
+			tlsConfig.RootCAs = roots
+		}
+
+		opts := x509.VerifyOptions{
+			Roots:         tlsConfig.RootCAs,
+			CurrentTime:   time.Now(),
+			DNSName:       "", // <- skip hostname verification
+			Intermediates: x509.NewCertPool(),
+		}
+
+		for i, cert := range certs {
+			if i == 0 {
+				continue
+			}
+			opts.Intermediates.AddCert(cert)
+		}
+		_, err := certs[0].Verify(opts)
+		if err != nil {
+			log.Error("Failed to verify server certificate: " + err.Error())
+			return err
+		}
+
+		return nil
+	}
+}
+
 func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Request, withCache bool) ProxyResponse {
 	if trace.IsEnabled() {
 		span, ctx := trace.Span(req.Context(), req.URL.Path)
@@ -1151,6 +1251,32 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		req = req.WithContext(ctx)
 	}
 	var roundTripper *TykRoundTripper
+
+	p.TykAPISpec.Lock()
+
+	// create HTTP transport
+	createTransport := p.TykAPISpec.HTTPTransport == nil
+
+	// Check if timeouts are set for this endpoint
+	if !createTransport && p.Gw.GetConfig().MaxConnTime != 0 {
+		createTransport = time.Since(p.TykAPISpec.HTTPTransportCreated) > time.Duration(p.Gw.GetConfig().MaxConnTime)*time.Second
+	}
+
+	if createTransport {
+		_, timeout := p.CheckHardTimeoutEnforced(p.TykAPISpec, req)
+		//Cisco change
+		//override the connect timeout value if X-Nd-Proxy-Timeout header is set
+		timeout = p.GetTimeoutFromProxyHeader(p.TykAPISpec, req, timeout)
+
+		p.TykAPISpec.HTTPTransport = httpTransport(timeout, rw, req, p)
+		p.TykAPISpec.HTTPTransportCreated = time.Now()
+
+		p.logger.Debug("Creating new transport")
+	}
+
+	roundTripper = p.TykAPISpec.HTTPTransport
+
+	p.TykAPISpec.Unlock()
 
 	reqCtx := req.Context()
 	if cn, ok := rw.(http.CloseNotifier); ok {
@@ -1251,26 +1377,7 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 	}
 
 	p.TykAPISpec.Lock()
-
-	// create HTTP transport
-	createTransport := p.TykAPISpec.HTTPTransport == nil
-
-	// Check if timeouts are set for this endpoint
-	if !createTransport && p.Gw.GetConfig().MaxConnTime != 0 {
-		createTransport = time.Since(p.TykAPISpec.HTTPTransportCreated) > time.Duration(p.Gw.GetConfig().MaxConnTime)*time.Second
-	}
-
-	if createTransport {
-		_, timeout := p.CheckHardTimeoutEnforced(p.TykAPISpec, req)
-		p.TykAPISpec.HTTPTransport = p.httpTransport(timeout, rw, req, outreq)
-		p.TykAPISpec.HTTPTransportCreated = time.Now()
-	}
-
-	roundTripper = p.TykAPISpec.HTTPTransport
-
-	if roundTripper.transport != nil {
-		roundTripper.transport.TLSClientConfig.Certificates = tlsCertificates
-	}
+	roundTripper.transport.TLSClientConfig.Certificates = tlsCertificates
 	p.TykAPISpec.Unlock()
 
 	if outreq.URL.Scheme == "h2c" {
@@ -1292,6 +1399,19 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		}
 
 	}
+
+	//Validate RootCA
+	if p.TykAPISpec.Proxy.Transport.SSLForceRootCACheck && p.Gw.GetConfig().SSLForceRootCACheck {
+		// DialTLS is not executed if proxy is used
+		httpTransport := roundTripper.transport
+		tlsConfig := httpTransport.TLSClientConfig
+		log.Debug("Using forced SSL RootCA check")
+
+		host, _, _ := net.SplitHostPort(outreq.Host)
+
+		p.verifyRootCA(tlsConfig, host)
+	}
+	log.Debug("Root Varification Done")
 
 	// do request round trip
 	var (
@@ -1361,6 +1481,17 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 			p.ErrorHandler.HandleError(rw, logreq, "Upstream host lookup failed", http.StatusInternalServerError, true)
 			return ProxyResponse{UpstreamLatency: upstreamLatency}
 		}
+
+		if strings.Contains(err.Error(), "x509: certificate signed by unknown authority") {
+			p.ErrorHandler.HandleError(rw, logreq, "x509: certificate signed by unknown authority", http.StatusInternalServerError, true)
+			return ProxyResponse{UpstreamLatency: upstreamLatency}
+		}
+
+		if strings.Contains(err.Error(), "invalid rootca") {
+			p.ErrorHandler.HandleError(rw, logreq, "invalid root certificate", http.StatusInternalServerError, true)
+			return ProxyResponse{UpstreamLatency: upstreamLatency}
+		}
+
 		p.ErrorHandler.HandleError(rw, logreq, "There was a problem proxying the request", http.StatusInternalServerError, true)
 		return ProxyResponse{UpstreamLatency: upstreamLatency}
 
@@ -1892,13 +2023,24 @@ func nopCloseResponseBody(r *http.Response) {
 	copyResponse(r)
 }
 
-func (p *ReverseProxy) IsUpgrade(req *http.Request) (bool, string) {
+func IsUpgrade(req *http.Request) (bool, string) {
 	if !p.Gw.GetConfig().HttpServerOptions.EnableWebSockets {
 		return false, ""
 	}
 
-	connection := strings.ToLower(strings.TrimSpace(req.Header.Get(header.Connection)))
-	if connection != "upgrade" {
+	contentType := strings.ToLower(strings.TrimSpace(req.Header.Get(headers.Accept)))
+	if contentType == "text/event-stream" {
+		return true, ""
+	}
+
+	// connection := strings.ToLower(strings.TrimSpace(req.Header.Get(headers.Connection)))
+	// if connection != "upgrade" {
+	// 	return false, ""
+	// }
+
+	//Firefox sends Connection: [keep-alive, Upgrade] which breaks TyK Connection upgrade header parsing
+	//Using gorilla websocket function to correclty parse the Connection header
+	if !tokenListContainsValue(req.Header, "Connection", "upgrade") {
 		return false, ""
 	}
 
@@ -1908,6 +2050,162 @@ func (p *ReverseProxy) IsUpgrade(req *http.Request) (bool, string) {
 	}
 
 	return false, ""
+}
+
+// tokenListContainsValue returns true if the 1#token header with the given
+// name contains a token equal to value with ASCII case folding.
+func tokenListContainsValue(header http.Header, name string, value string) bool {
+headers:
+	for _, s := range header[name] {
+		for {
+			var t string
+			t, s = nextToken(skipSpace(s))
+			if t == "" {
+				continue headers
+			}
+			s = skipSpace(s)
+			if s != "" && s[0] != ',' {
+				continue headers
+			}
+			if equalASCIIFold(t, value) {
+				return true
+			}
+			if s == "" {
+				continue headers
+			}
+			s = s[1:]
+		}
+	}
+	return false
+}
+
+// Token octets per RFC 2616.
+var isTokenOctet = [256]bool{
+	'!':  true,
+	'#':  true,
+	'$':  true,
+	'%':  true,
+	'&':  true,
+	'\'': true,
+	'*':  true,
+	'+':  true,
+	'-':  true,
+	'.':  true,
+	'0':  true,
+	'1':  true,
+	'2':  true,
+	'3':  true,
+	'4':  true,
+	'5':  true,
+	'6':  true,
+	'7':  true,
+	'8':  true,
+	'9':  true,
+	'A':  true,
+	'B':  true,
+	'C':  true,
+	'D':  true,
+	'E':  true,
+	'F':  true,
+	'G':  true,
+	'H':  true,
+	'I':  true,
+	'J':  true,
+	'K':  true,
+	'L':  true,
+	'M':  true,
+	'N':  true,
+	'O':  true,
+	'P':  true,
+	'Q':  true,
+	'R':  true,
+	'S':  true,
+	'T':  true,
+	'U':  true,
+	'W':  true,
+	'V':  true,
+	'X':  true,
+	'Y':  true,
+	'Z':  true,
+	'^':  true,
+	'_':  true,
+	'`':  true,
+	'a':  true,
+	'b':  true,
+	'c':  true,
+	'd':  true,
+	'e':  true,
+	'f':  true,
+	'g':  true,
+	'h':  true,
+	'i':  true,
+	'j':  true,
+	'k':  true,
+	'l':  true,
+	'm':  true,
+	'n':  true,
+	'o':  true,
+	'p':  true,
+	'q':  true,
+	'r':  true,
+	's':  true,
+	't':  true,
+	'u':  true,
+	'v':  true,
+	'w':  true,
+	'x':  true,
+	'y':  true,
+	'z':  true,
+	'|':  true,
+	'~':  true,
+}
+
+// nextToken returns the leading RFC 2616 token of s and the string following
+// the token.
+func nextToken(s string) (token, rest string) {
+	i := 0
+	for ; i < len(s); i++ {
+		if !isTokenOctet[s[i]] {
+			break
+		}
+	}
+	return s[:i], s[i:]
+}
+
+// skipSpace returns a slice of the string s with all leading RFC 2616 linear
+// whitespace removed.
+func skipSpace(s string) (rest string) {
+	i := 0
+	for ; i < len(s); i++ {
+		if b := s[i]; b != ' ' && b != '\t' {
+			break
+		}
+	}
+	return s[i:]
+}
+
+// equalASCIIFold returns true if s is equal to t with ASCII case folding as
+// defined in RFC 4790.
+func equalASCIIFold(s, t string) bool {
+	for s != "" && t != "" {
+		sr, size := utf8.DecodeRuneInString(s)
+		s = s[size:]
+		tr, size := utf8.DecodeRuneInString(t)
+		t = t[size:]
+		if sr == tr {
+			continue
+		}
+		if 'A' <= sr && sr <= 'Z' {
+			sr = sr + 'a' - 'A'
+		}
+		if 'A' <= tr && tr <= 'Z' {
+			tr = tr + 'a' - 'A'
+		}
+		if sr != tr {
+			return false
+		}
+	}
+	return s == t
 }
 
 // IsGrpcStreaming  determines wether a request represents a grpc streaming req
