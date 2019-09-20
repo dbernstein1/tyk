@@ -23,12 +23,16 @@ require (
 	github.com/akutz/memconn v0.1.0
 	github.com/bshuster-repo/logrus-logstash-hook v0.4.1
 	github.com/buger/jsonparser v1.1.1
+	github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23
 	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/clbanning/mxj v1.8.4
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
+	github.com/franela/goblin v0.0.0-20181003173013-ead4ad1d2727 // indirect
+	github.com/franela/goreq v0.0.0-20171204163338-bcd34c9993f8
+	github.com/garyburd/redigo v1.6.2
 	github.com/gemnasium/logrus-graylog-hook v2.0.7+incompatible
 	github.com/getkin/kin-openapi v0.89.0
 	github.com/getsentry/raven-go v0.2.0 // indirect
@@ -43,6 +47,8 @@ require (
 	github.com/hashicorp/consul/api v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-version v1.4.0
+	github.com/hashicorp/go-msgpack v0.5.4 // indirect
+	github.com/hashicorp/go-retryablehttp v0.5.4
 	github.com/hashicorp/vault/api v1.0.4
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
