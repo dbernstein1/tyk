@@ -76,6 +76,14 @@ type DBAppConfOptionsConfig struct {
 	Tags             []string `json:"tags"`
 }
 
+type RedisDBAppConfOptionsConfig struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	DB       int    `json:"db"`
+	Password string `json:"password"`
+	PoolSize int    `json:"pool_size"`
+}
+
 type StorageOptionsConf struct {
 	Type                  string            `json:"type"`
 	Host                  string            `json:"host"`
@@ -460,7 +468,11 @@ type Config struct {
 	GlobalSessionLifetime          int64 `bson:"global_session_lifetime" json:"global_session_lifetime"`
 	ForceGlobalSessionLifetime     bool  `bson:"force_global_session_lifetime" json:"force_global_session_lifetime"`
 	HideGeneratorHeader            bool  `json:"hide_generator_header"`
-	KV                             struct {
+
+	// Cisco - Redis DB Api Store
+	UseRedisDBAppConfig   bool                        `json:"use_redis_db_app_configs"`
+	RedisDBAppConfOptions RedisDBAppConfOptionsConfig `json:"redis_db_app_conf_options"`
+	KV                    struct {
 		Consul ConsulConfig `json:"consul"`
 		Vault  VaultConfig  `json:"vault"`
 	} `json:"kv"`
