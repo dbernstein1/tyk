@@ -986,6 +986,9 @@ type Config struct {
 	UseRedisDBAppConfig   bool                        `json:"use_redis_db_app_configs"`
 	RedisDBAppConfOptions RedisDBAppConfOptionsConfig `json:"redis_db_app_conf_options"`
 
+	// Cisco - Read timeout
+	DynamicAPIConnTimeout int `json:"dynamic_api_timeout_milli_sec"`
+
 	// This section enables the use of the KV capabilities to substitute configuration values.
 	// See more details https://tyk.io/docs/tyk-configuration-reference/kv-store/
 	KV struct {
