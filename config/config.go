@@ -941,6 +941,9 @@ type Config struct {
 	// Cisco - Read timeout
 	DynamicAPIConnTimeout int `json:"dynamic_api_timeout_milli_sec"`
 
+	//Cisco - JWT URL Redirect
+	RedirectURL string `json:"redirect_url"`
+
 	// This section enables the use of the KV capabilites to substitute configuration values.
 	// See more details https://tyk.io/docs/tyk-configuration-reference/kv-store/
 	KV                    struct {
