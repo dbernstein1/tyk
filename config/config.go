@@ -475,7 +475,11 @@ type Config struct {
 
 	// Cisco - Read timeout
 	DynamicAPIConnTimeout int `json:"dynamic_api_timeout_milli_sec"`
-	KV                    struct {
+
+	//Cisco - JWT URL Redirect
+	RedirectURL string `json:"redirect_url"`
+
+	KV struct {
 		Consul ConsulConfig `json:"consul"`
 		Vault  VaultConfig  `json:"vault"`
 	} `json:"kv"`
