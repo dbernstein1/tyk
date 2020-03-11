@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -108,6 +109,8 @@ func (b *DefaultSessionManager) UpdateSession(keyName string, session *user.Sess
 		keyName = b.store.GetKeyPrefix() + keyName
 		err = b.store.SetRawKey(keyName, string(v), resetTTLTo)
 	} else {
+		log.Debug(fmt.Sprintf("**** trace b.store.SetKey *****  Key name : %s  session obj: %s  TTL: %d ",
+			keyName, string(v), resetTTLTo))
 		err = b.store.SetKey(keyName, string(v), resetTTLTo)
 	}
 
