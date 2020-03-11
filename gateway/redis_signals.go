@@ -106,7 +106,7 @@ func (gw *Gateway) handleRedisEvent(v interface{}, handled func(NotificationComm
 
 	// Check for a signature, if not signature found, handle
 	if !isPayloadSignatureValid(notif) {
-		pubSubLog.Error("Payload signature is invalid!")
+		pubSubLog.Debug("Payload signature is invalid!")
 		return
 	}
 
