@@ -1257,6 +1257,13 @@ func hotReloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	log.WithFields(logrus.Fields{
+		"prefix": "api",
+	}).Info("received /health probe")
+	doJSONWrite(w, http.StatusOK, apiOk(""))
+}
+
 func createKeyHandler(w http.ResponseWriter, r *http.Request) {
 	newSession := user.NewSessionState()
 	if err := json.NewDecoder(r.Body).Decode(newSession); err != nil {

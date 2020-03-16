@@ -438,6 +438,7 @@ func loadControlAPIEndpoints(muxer *mux.Router) {
 	r.HandleFunc("/reload/group", groupResetHandler).Methods("GET")
 	r.HandleFunc("/reload", resetHandler(nil)).Methods("GET")
 	r.HandleFunc("/hotreload", hotReloadHandler).Methods("GET")
+	r.HandleFunc("/health", healthHandler).Methods("GET")
 
 	if config.Global().UseRedisDBAppConfig == true {
 		r.HandleFunc("/api", apiLoader).Methods("GET", "POST")
