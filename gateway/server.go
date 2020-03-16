@@ -629,6 +629,7 @@ func (gw *Gateway) loadControlAPIEndpoints(muxer *mux.Router) {
 	r.HandleFunc("/reload", gw.resetHandler(nil)).Methods("GET")
 	// Cisco Change
 	r.HandleFunc("/hotreload", gw.hotReloadHandler).Methods("GET")
+	r.HandleFunc("/health", gw.healthHandler).Methods("GET")
 
 	// Cisco Change
 	if gw.GetConfig().UseRedisDBAppConfig {
