@@ -477,8 +477,9 @@ type Config struct {
 	DynamicAPIConnTimeout int `json:"dynamic_api_timeout_milli_sec"`
 
 	//Cisco - JWT URL Redirect
-	EnableRedirect bool   `json:"enable_redirect"`
-	RedirectURL    string `json:"redirect_url"`
+	RedirectResetCookie string `json:"redirect_reset_cookie"`
+	EnableRedirect      bool   `json:"enable_redirect"`
+	RedirectURL         string `json:"redirect_url"`
 
 	KV struct {
 		Consul ConsulConfig `json:"consul"`
