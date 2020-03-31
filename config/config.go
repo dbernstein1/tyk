@@ -481,6 +481,10 @@ type Config struct {
 	EnableRedirect      bool   `json:"enable_redirect"`
 	RedirectURL         string `json:"redirect_url"`
 
+	// Cisco - Force Root CA Check
+	SSLForceRootCACheck bool   `json:"ssl_force_rootca_check"`
+	SSLRootCACert       string `json:"ssl_rootca_cert"`
+
 	KV struct {
 		Consul ConsulConfig `json:"consul"`
 		Vault  VaultConfig  `json:"vault"`
