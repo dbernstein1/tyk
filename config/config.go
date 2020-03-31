@@ -946,6 +946,10 @@ type Config struct {
 	EnableRedirect      bool   `json:"enable_redirect"`
 	RedirectURL         string `json:"redirect_url"`
 
+	// Cisco - Force Root CA Check
+	SSLForceRootCACheck bool   `json:"ssl_force_rootca_check"`
+	SSLRootCACert       string `json:"ssl_rootca_cert"`
+
 	// This section enables the use of the KV capabilites to substitute configuration values.
 	// See more details https://tyk.io/docs/tyk-configuration-reference/kv-store/
 	KV                    struct {
