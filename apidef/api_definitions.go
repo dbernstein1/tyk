@@ -366,11 +366,13 @@ type APIDefinition struct {
 	EnableProxyProtocol bool          `bson:"enable_proxy_protocol" json:"enable_proxy_protocol"`
 	APIID               string        `bson:"api_id" json:"api_id"`
 	OrgID               string        `bson:"org_id" json:"org_id"`
-	UseKeylessAccess    bool          `bson:"use_keyless" json:"use_keyless"`
-	UseOauth2           bool          `bson:"use_oauth2" json:"use_oauth2"`
-	UseOpenID           bool          `bson:"use_openid" json:"use_openid"`
-	OpenIDOptions       OpenIDOptions `bson:"openid_options" json:"openid_options"`
-	Oauth2Meta          struct {
+	//Cisco AppName
+	AppName          string        `bson:"app_name" json:"app_name"`
+	UseKeylessAccess bool          `bson:"use_keyless" json:"use_keyless"`
+	UseOauth2        bool          `bson:"use_oauth2" json:"use_oauth2"`
+	UseOpenID        bool          `bson:"use_openid" json:"use_openid"`
+	OpenIDOptions    OpenIDOptions `bson:"openid_options" json:"openid_options"`
+	Oauth2Meta       struct {
 		AllowedAccessTypes     []osin.AccessRequestType    `bson:"allowed_access_types" json:"allowed_access_types"`
 		AllowedAuthorizeTypes  []osin.AuthorizeRequestType `bson:"allowed_authorize_types" json:"allowed_authorize_types"`
 		AuthorizeLoginRedirect string                      `bson:"auth_login_redirect" json:"auth_login_redirect"`
