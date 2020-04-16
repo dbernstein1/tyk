@@ -554,7 +554,7 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 		log.Debug("Headers are: ", r.Header)
 
 		k.reportLoginFailure(tykId, r)
-		return errors.New("Authorization field missing"), http.StatusBadRequest
+		return errors.New("Authorization field missing"), http.StatusForbidden
 	}
 
 	// enable bearer token format
