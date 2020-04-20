@@ -540,7 +540,7 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 		log.Debug("Headers are: ", r.Header)
 
 		k.reportLoginFailure(tykId, r)
-		return errors.New("Authorization field missing"), http.StatusForbidden
+		return errors.New("Authorization field missing"), http.StatusUnauthorized
 	}
 
 	// enable bearer token format
@@ -610,9 +610,9 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 	k.reportLoginFailure(tykId, r)
 	if err != nil {
 		logger.WithError(err).Error("JWT validation error")
-		return errors.New("Key not authorized:" + err.Error()), http.StatusForbidden
+		return errors.New("Key not authorized:" + err.Error()), http.StatusUnauthorized
 	}
-	return errors.New("Key not authorized"), http.StatusForbidden
+	return errors.New("Key not authorized"), http.StatusUnauthorized
 }
 
 func (k *JWTMiddleware) timeValidateJWTClaims(c jwt.MapClaims) *jwt.ValidationError {
