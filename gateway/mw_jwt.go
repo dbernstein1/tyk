@@ -656,6 +656,7 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 	logger := k.Logger()
 	var tykId string
 
+	//Added default JWT lookup
 	rawJWT, config := k.getAuthToken(k.getAuthType(), r)
 
 	if rawJWT == "" {
