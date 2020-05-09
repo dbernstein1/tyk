@@ -684,10 +684,10 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 
 				// Create api_hash folder under middleware
 				middlewareBundlePath := strings.Join([]string{
-					TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
+					TykMiddlewareRoot, "/", TykBundles, "/"}, "")
 
 				middlewareBundlePathInK8S := strings.Join([]string{
-					TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
+					TykMiddlewareRoot, "/", TykBundles, "/"}, "")
 
 				if _, err := os.Stat(middlewareBundlePath); os.IsNotExist(err) {
 					// make folder and copy manifest and middleware.py to it
