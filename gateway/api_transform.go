@@ -686,8 +686,7 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 				middlewareBundlePath := strings.Join([]string{
 					TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
 
-				middlewareBundlePathInK8S := strings.Join([]string{
-					TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
+				sharedObjectPath := strings.Join([]string{TykMiddlewareRoot, "/", TykBundles}, "")
 
 				if _, err := os.Stat(middlewareBundlePath); os.IsNotExist(err) {
 					// make folder and copy manifest and middleware.py to it
@@ -696,17 +695,23 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 						return apiError("Middleware Error"), http.StatusInternalServerError
 					}
 
-					//Copy shared object ".so" pointed by path to respective bundle folder
-					middlewareDestination := strings.Join([]string{middlewareBundlePath, "/", api.GolangMiddlewareConfigData.Path}, "")
+					//Copy shared object ".so" pointed by path middleware/bundles
+					//All *.so will be stored at middelware/bundles
+
+					middlewareDestination := strings.Join([]string{sharedObjectPath, "/", api.GolangMiddlewareConfigData.Path}, "")
+
 					middlewareSource := strings.Join([]string{TykRoot, "/", api.GolangMiddlewareConfigData.Path}, "")
-					_, mErr := copyFile(middlewareSource, middlewareDestination)
-					if mErr != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
+
+					if _, err := os.Stat(middlewareDestination); os.IsNotExist(err) {
+						_, mErr := copyFile(middlewareSource, middlewareDestination)
+						if mErr != nil {
+							return apiError("Middleware Error"), http.StatusInternalServerError
+						}
 					}
 
-					//Read sample manifest file and marshel through the structure
+					//Read sample manifest file and marshal through the structure
 					sharedObjectAbsPathInK8S := strings.Join(
-						[]string{middlewareBundlePathInK8S, "/", api.GolangMiddlewareConfigData.Path}, "")
+						[]string{sharedObjectPath, "/", api.GolangMiddlewareConfigData.Path}, "")
 
 					gm := GolangManifest{Checksum: "", Signature: ""}
 					post := Post{Name: api.GolangMiddlewareConfigData.Name, Path: sharedObjectAbsPathInK8S, RequireSession: false}
