@@ -684,49 +684,48 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 
 				// Create api_hash folder under middleware
 				middlewareBundlePath := strings.Join([]string{
-					TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
+					TykMiddlewareRoot, "/", TykBundles, "/"}, "")
 
 				middlewareBundlePathInK8S := strings.Join([]string{
-					TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
+					TykMiddlewareRoot, "/", TykBundles, "/"}, "")
 
-				if _, err := os.Stat(middlewareBundlePath); os.IsNotExist(err) {
-					// make folder and copy manifest and middleware.py to it
-					err := os.MkdirAll(middlewareBundlePath, os.ModePerm)
-					if err != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
-					}
-
-					//Copy shared object ".so" pointed by path to respective bundle folder
-					middlewareDestination := strings.Join([]string{middlewareBundlePath, "/", api.GolangMiddlewareConfigData.Path}, "")
-					middlewareSource := strings.Join([]string{TykRoot, "/", api.GolangMiddlewareConfigData.Path}, "")
-					_, mErr := copyFile(middlewareSource, middlewareDestination)
-					if mErr != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
-					}
-
-					//Read sample manifest file and marshel through the structure
-					sharedObjectAbsPathInK8S := strings.Join(
-						[]string{middlewareBundlePathInK8S, "/", api.GolangMiddlewareConfigData.Path}, "")
-
-					gm := GolangManifest{Checksum: "", Signature: ""}
-					post := Post{Name: api.GolangMiddlewareConfigData.Name, Path: sharedObjectAbsPathInK8S, RequireSession: false}
-					gm.CustomMiddleware.Post = append(gm.CustomMiddleware.Post, post)
-					gm.CustomMiddleware.Driver = "goplugin"
-
-					data, gErr := json.MarshalIndent(gm, "", "  ")
-					if gErr != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
-					}
-
-					manifestDestination := strings.Join([]string{middlewareBundlePath, "/", TykManifest}, "")
-
-					err = ioutil.WriteFile(manifestDestination, data, 0644)
-					if err != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
-					}
-
-					log.Info("Added golang middleware folder for ", APIID)
+				// make folder
+				err := os.MkdirAll(middlewareBundlePath, os.ModePerm)
+				if err != nil {
+					return apiError("Middleware Error"), http.StatusInternalServerError
 				}
+
+				//Copy shared object ".so" pointed by path to respective bundle folder
+				middlewareDestination := strings.Join([]string{middlewareBundlePath, "/", api.GolangMiddlewareConfigData.Path}, "")
+				middlewareSource := strings.Join([]string{TykRoot, "/", api.GolangMiddlewareConfigData.Path}, "")
+				_, mErr := copyFile(middlewareSource, middlewareDestination)
+				if mErr != nil {
+					return apiError("Middleware Error"), http.StatusInternalServerError
+				}
+
+				//Read sample manifest file and marshel through the structure
+				sharedObjectAbsPathInK8S := strings.Join(
+					[]string{middlewareBundlePathInK8S, "/", api.GolangMiddlewareConfigData.Path}, "")
+
+				gm := GolangManifest{Checksum: "", Signature: ""}
+				post := Post{Name: api.GolangMiddlewareConfigData.Name, Path: sharedObjectAbsPathInK8S, RequireSession: false}
+				gm.CustomMiddleware.Post = append(gm.CustomMiddleware.Post, post)
+				gm.CustomMiddleware.Driver = "goplugin"
+
+				data, gErr := json.MarshalIndent(gm, "", "  ")
+				if gErr != nil {
+					return apiError("Middleware Error"), http.StatusInternalServerError
+				}
+
+				manifestDestination := strings.Join([]string{middlewareBundlePath, "/", TykManifest}, "")
+
+				err = ioutil.WriteFile(manifestDestination, data, 0644)
+				if err != nil {
+					return apiError("Middleware Error"), http.StatusInternalServerError
+				}
+
+				log.Info("Added golang middleware folder for ", APIID)
+
 			}
 
 			if api.EnableMTLS {
