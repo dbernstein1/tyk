@@ -530,6 +530,7 @@ func (gw *Gateway) addOrUpdateApi(r *http.Request) (interface{}, int) {
 	var ServApis ServiceAPIS
 	var existingApis ServiceAPIS
 	var appName string
+	var wg sync.WaitGroup
 
 	//Non-blocking read
 	data, err := gw.receivePayload(r)
@@ -763,10 +764,16 @@ func (gw *Gateway) addOrUpdateApi(r *http.Request) (interface{}, int) {
 	}
 
 	// Reload All APIS and process the JWT APIs
-	gw.reloadURLStructure(nil)
+	wg.Add(1)
+	gw.reloadURLStructure(wg.Done)
+	log.Info("Waiting for api reload to finish")
+	wg.Wait()
+	log.Info("API reload finished")
+
+	//reloadURLStructure(nil)
 
 	//read all existing JWT enabled apis, add new api_id and update the JWT token
-
+	log.Info("Creating/Updating JWT Key")
 	err = gw.addOrDeleteJWTKey(ADD, appName)
 	if err != nil {
 		return apiError("Could not add JWT key"), http.StatusInternalServerError
