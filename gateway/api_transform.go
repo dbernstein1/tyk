@@ -770,8 +770,6 @@ func (gw *Gateway) addOrUpdateApi(r *http.Request) (interface{}, int) {
 	wg.Wait()
 	log.Info("API reload finished")
 
-	//reloadURLStructure(nil)
-
 	//read all existing JWT enabled apis, add new api_id and update the JWT token
 	log.Info("Creating/Updating JWT Key")
 	err = gw.addOrDeleteJWTKey(ADD, appName)
@@ -1167,6 +1165,7 @@ func checkRetry(ctx context.Context, resp *http.Response, err error) (bool, erro
 }
 
 func (gw *Gateway) deleteAPIById(apiID string) (interface{}, int) {
+	var wg sync.WaitGroup
 	c := GetRedisConn()
 	defer c.Close()
 
@@ -1211,12 +1210,17 @@ func (gw *Gateway) deleteAPIById(apiID string) (interface{}, int) {
 		Action: "deleted",
 	}
 
-	gw.reloadURLStructure(nil)
+	wg.Add(1)
+	gw.reloadURLStructure(wg.Done)
+	log.Info("Waiting for api reload to finish")
+	wg.Wait()
+	log.Info("API reload finished")
 
 	return response, http.StatusOK
 }
 
 func (gw *Gateway) deleteAPIByService(service string) (interface{}, int) {
+	var wg sync.WaitGroup
 	var existingApis ServiceAPIS
 	var apiData string
 
@@ -1290,7 +1294,12 @@ func (gw *Gateway) deleteAPIByService(service string) (interface{}, int) {
 
 	delete(existingApis, service)
 
-	gw.reloadURLStructure(nil)
+	// Reload All APIS and process the JWT APIs
+	wg.Add(1)
+	gw.reloadURLStructure(wg.Done)
+	log.Info("Waiting for api reload to finish")
+	wg.Wait()
+	log.Info("API reload finished")
 
 	return response, http.StatusOK
 }
