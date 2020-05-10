@@ -530,6 +530,7 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 	var ServApis ServiceAPIS
 	var existingApis ServiceAPIS
 	var appName string
+	var wg sync.WaitGroup
 
 	//Non-blocking read
 	data, err := receivePayload(r)
@@ -763,7 +764,13 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 	}
 
 	// Reload All APIS and process the JWT APIs
-	reloadURLStructure(nil)
+	wg.Add(1)
+	reloadURLStructure(wg.Done)
+	log.Info("Waiting for api reload to finish")
+	wg.Wait()
+	log.Info("API reload finished")
+
+	//reloadURLStructure(nil)
 
 	//read all existing JWT enabled apis, add new api_id and update the JWT token
 
