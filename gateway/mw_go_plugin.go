@@ -125,7 +125,7 @@ func (m *GoPluginMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Reque
 	// prepare data to call Go-plugin function
 
 	// make sure request's body can be re-read again
-	nopCloseRequestBody(r)
+	//nopCloseRequestBody(r)
 
 	// wrap ResponseWriter to check if response was sent
 	rw := &customResponseWriter{
