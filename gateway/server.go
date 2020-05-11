@@ -1284,7 +1284,7 @@ func (_ mainHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reloadMu.Unlock()
 
 	// make request body to be nopCloser and re-readable before serve it through chain of middlewares
-	nopCloseRequestBody(r)
+	//nopCloseRequestBody(r)
 	mainRouter.ServeHTTP(w, r)
 }
 

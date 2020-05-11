@@ -1073,11 +1073,12 @@ func copyBody(body io.ReadCloser) io.ReadCloser {
 	defer body.Close()
 
 	// body is http's io.ReadCloser - read it up until EOF
-	var bodyRead bytes.Buffer
-	io.Copy(&bodyRead, body)
+	//var bodyRead bytes.Buffer
+	//io.Copy(&bodyRead, body)
+	bodyRead, _ := ioutil.ReadAll(body)
 
 	// use seek-able reader for further body usage
-	reusableBody := bytes.NewReader(bodyRead.Bytes())
+	reusableBody := bytes.NewReader(bodyRead)
 
 	return nopCloser{reusableBody}
 }
