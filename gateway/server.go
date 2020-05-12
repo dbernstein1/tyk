@@ -1284,7 +1284,13 @@ func (_ mainHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reloadMu.Unlock()
 
 	// make request body to be nopCloser and re-readable before serve it through chain of middlewares
-	nopCloseRequestBody(r)
+
+	// nuchat - we do not enticiapte body tranfforamtion in any middleware
+	// this code has memory leak
+	// if you are writing go plugin with body transaformation -- it WON'T work
+	// please talk to APIC security team
+	//nopCloseRequestBody(r)
+
 	mainRouter.ServeHTTP(w, r)
 }
 
