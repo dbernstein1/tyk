@@ -941,27 +941,28 @@ func addOrDeleteJWTKey(e Event, appName string) error {
 					}
 				}
 			}
-		}
-		//Update Key
-		log.Debug(fmt.Sprintf("App Name - %s  ---- JWT API Map %v ", appName, JWTAPIMap))
-		log.Debug(fmt.Sprintf("updating JWT key %s", jwtDef.JWTAPIKey))
-		//Base64 decode JWT key
-		jwtKey, err := base64.StdEncoding.DecodeString(jwtDef.JWTPublicKey)
-		if err != nil {
-			return err
-		}
-		count := 0
-		for {
-			time.Sleep(3 * time.Second)
-			ret := processJWTApiKey(tykConf, JWTAPIMap, jwtKey, jwtDef.JWTAPIKey, "localhost", e)
-			count++
-			if ret == true {
-				break
-			} else if count < 3 {
-				log.Warn("Could not verify JWT API Token.. retry")
-			} else {
-				log.Error("Could not add JWT token", jwtDef.JWTAPIKey)
-				break
+
+			//Update Key
+			log.Debug(fmt.Sprintf("App Name - %s  ---- JWT API Map %v ", appName, JWTAPIMap))
+			log.Debug(fmt.Sprintf("updating JWT key %s", jwtDef.JWTAPIKey))
+			//Base64 decode JWT key
+			jwtKey, err := base64.StdEncoding.DecodeString(jwtDef.JWTPublicKey)
+			if err != nil {
+				return err
+			}
+			count := 0
+			for {
+				time.Sleep(3 * time.Second)
+				ret := processJWTApiKey(tykConf, JWTAPIMap, jwtKey, jwtDef.JWTAPIKey, "localhost", e)
+				count++
+				if ret == true {
+					break
+				} else if count < 3 {
+					log.Warn("Could not verify JWT API Token.. retry")
+				} else {
+					log.Error("Could not add JWT token", jwtDef.JWTAPIKey)
+					break
+				}
 			}
 		}
 	}
