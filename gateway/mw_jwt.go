@@ -519,7 +519,7 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 	rawJWT := r.Header.Get(config.AuthHeaderName)
 	if config.UseParam {
 		// Set hte header name
-		rawJWT = r.URL.Query().Get(config.AuthHeaderName)
+		rawJWT = r.URL.Query().Get(config.ParamName)
 	}
 
 	if config.UseCookie {
