@@ -145,7 +145,7 @@ func createMiddleware(actualMW TykMiddleware) func(http.Handler) http.Handler {
 						h.ServeHTTP(w, r)
 						return
 					}
-					
+
 					resetCookie := config.Global().RedirectResetCookie
 
 					if resetCookie != "" {
