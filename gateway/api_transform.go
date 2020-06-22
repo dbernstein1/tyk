@@ -875,7 +875,6 @@ func (gw *Gateway) addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 
 //TODO - appName becomes the list
 func (gw *Gateway) addOrDeleteJWTKey(e Event, appName string) error {
-	var JWTAPIMap = make(map[string]string)
 	var tykConf map[string]interface{}
 
 	tykConfData, err := ioutil.ReadFile(TykConfFilePath)
@@ -906,6 +905,7 @@ func (gw *Gateway) addOrDeleteJWTKey(e Event, appName string) error {
 
 	// Go Over all JWT Keys
 	for _, key := range keys {
+		var JWTAPIMap = make(map[string]string)
 		jwtDef := JWTDefinition{}
 		jwtKeyData, err := redis.String(c.Do("GET", key))
 		if err != nil {
