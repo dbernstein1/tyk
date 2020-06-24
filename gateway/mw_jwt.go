@@ -522,7 +522,7 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 		rawJWT = r.URL.Query().Get(config.ParamName)
 	}
 
-	if config.UseCookie {
+	if config.UseCookie && rawJWT == "" {
 		authCookie, err := r.Cookie(config.CookieName)
 		if err == nil {
 			rawJWT = authCookie.Value
