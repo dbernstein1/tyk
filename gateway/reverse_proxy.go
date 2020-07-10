@@ -915,9 +915,9 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 	if p.TykAPISpec.Proxy.Transport.SSLForceRootCACheck && config.Global().SSLForceRootCACheck {
 		// DialTLS is not executed if proxy is used
 		httpTransport := roundTripper.transport
-
-		log.Debug("Using forced SSL RootCA check")
 		tlsConfig := httpTransport.TLSClientConfig
+		log.Debug("Using forced SSL RootCA check")
+
 		host, _, _ := net.SplitHostPort(outreq.Host)
 
 		p.verifyRootCA(tlsConfig, host)
