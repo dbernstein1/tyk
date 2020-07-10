@@ -528,7 +528,6 @@ func (gw *Gateway) addOrUpdateApi(r *http.Request) (interface{}, int) {
 	defer c.Close()
 
 	var ServApis ServiceAPIS
-	var existingApis ServiceAPIS
 	var appName string
 	var wg sync.WaitGroup
 
@@ -573,22 +572,6 @@ func (gw *Gateway) addOrUpdateApi(r *http.Request) (interface{}, int) {
 	host, err := gw.getInbandIP(SystemConfigFilePath)
 	if err != nil {
 		return apiError("Could not get inband IP"), http.StatusInternalServerError
-	}
-
-	// Load api_defintions.json file and check if incoming /v1/sites/<site-name> is loaded
-	// if its present in api_definitions.json then override it with incoming definition
-	// if not then add it to api_definitions.json
-	// when KMS loads api_defitions.json it would be no-op if /v1/sites/<site-name> is present
-
-	apiDefinitions, err := ioutil.ReadFile(APIDefinitionRedis)
-	if err != nil {
-		return apiError("Could not read api_definitions.json file"), http.StatusInternalServerError
-	}
-
-	err = json.Unmarshal(apiDefinitions, &existingApis)
-	if err != nil {
-		log.Error("Couldn't decode existing API Definition object: ", err)
-		return apiError("Malformed api_definitions.json"), http.StatusBadRequest
 	}
 
 	for service, apis := range ServApis {
@@ -763,9 +746,6 @@ func (gw *Gateway) addOrUpdateApi(r *http.Request) (interface{}, int) {
 				return apiError("Could not add api to redis store"), http.StatusInternalServerError
 			}
 		}
-
-		//Add API to existingApis structure
-		existingApis[service] = apis
 	}
 
 	// Reload All APIS and process the JWT APIs
@@ -1226,7 +1206,6 @@ func (gw *Gateway) deleteAPIById(apiID string) (interface{}, int) {
 
 func (gw *Gateway) deleteAPIByService(service string) (interface{}, int) {
 	var wg sync.WaitGroup
-	var existingApis ServiceAPIS
 	var apiData string
 
 	c := GetRedisConn()
@@ -1239,7 +1218,15 @@ func (gw *Gateway) deleteAPIByService(service string) (interface{}, int) {
 	keys, err := redis.Strings(c.Do("KEYS", service+"-*"))
 	if err != nil {
 		log.Warning("API does not exists ", err)
-		return apiError("Api does not exists"), http.StatusInternalServerError
+		//Return 200 OK if api is not found
+		response := apiModifyKeySuccess{
+			Key:    service,
+			Status: "ok",
+			Action: "api not found",
+		}
+
+		return response, http.StatusOK
+		//return apiError("Api does not exists"), http.StatusInternalServerError
 	}
 
 	for pos, apiID := range keys {
@@ -1284,20 +1271,6 @@ func (gw *Gateway) deleteAPIByService(service string) (interface{}, int) {
 		Status: "ok",
 		Action: "deleted",
 	}
-
-	// Delete service api entry from api_definitions.json
-	apiDefinitions, err := ioutil.ReadFile(APIDefinitionRedis)
-	if err != nil {
-		return apiError("Could not read api_definitions.json file"), http.StatusInternalServerError
-	}
-
-	err = json.Unmarshal(apiDefinitions, &existingApis)
-	if err != nil {
-		log.Error("Couldn't decode existing API Definition object: ", err)
-		return apiError("Malformed api_definitions.json"), http.StatusBadRequest
-	}
-
-	delete(existingApis, service)
 
 	// Reload All APIS and process the JWT APIs
 	wg.Add(1)
