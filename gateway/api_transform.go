@@ -62,6 +62,7 @@ var (
 	APIDefinitionRedis           = TykRoot + "/api_definitions.json"
 	DynamicAPIConnTimeout        = 20000
 	JWTKeyPrefix                 = "JWT-KEY-"
+	SEKeyAppName                 = "se"
 )
 
 type Event int
@@ -830,7 +831,13 @@ func addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 			//create JWT MAP of API belonging to appName
 			//check if appNamelist contains jsonApi["app_name"]
 			appName := fmt.Sprintf("%v", jsonApi["app_name"])
-			if Contains(jwtDef.AppNameList, appName) && jsonApi["enable_jwt"] == true {
+
+			//nd-sso change start
+			//if Contains(jwtDef.AppNameList, appName) && jsonApi["enable_jwt"] == true {
+			if (Contains(jwtDef.AppNameList, appName) && jsonApi["enable_jwt"] == true) ||
+				(jwtDef.AppName == SEKeyAppName) && (jsonApi["enable_jwt"] == true) {
+				//nd-sso change end
+
 				apiID := jsonApi["api_id"].(string)
 				name := jsonApi["name"].(string)
 				JWTAPIMap[apiID] = name
@@ -907,8 +914,12 @@ func addOrDeleteJWTKey(e Event, appName string) error {
 			return err
 		}
 
+		//nd-sso change - start
 		//Check if appName is in app_name_list
-		if Contains(jwtDef.AppNameList, appName) {
+		//if Contains(jwtDef.AppNameList, appName)
+		if Contains(jwtDef.AppNameList, appName) || (jwtDef.AppName == SEKeyAppName) {
+			//nd-sso change - end
+
 			//Create API MAP and update the key
 			apis, err := redis.Strings(c.Do("KEYS", "*"))
 			if err != nil {
@@ -931,7 +942,13 @@ func addOrDeleteJWTKey(e Event, appName string) error {
 
 					//create JWT MAP of API belonging to appName
 					aName := fmt.Sprintf("%v", jsonApi["app_name"])
-					if Contains(jwtDef.AppNameList, aName) && jsonApi["enable_jwt"] == true {
+
+					//nd-sso change - start
+					//if Contains(jwtDef.AppNameList, aName) && jsonApi["enable_jwt"] == true {
+					if (Contains(jwtDef.AppNameList, aName) && jsonApi["enable_jwt"] == true) ||
+						(jwtDef.AppName == SEKeyAppName && jsonApi["enable_jwt"] == true) {
+						//nd-sso change - end
+
 						apiID := jsonApi["api_id"].(string)
 						name := jsonApi["name"].(string)
 						JWTAPIMap[apiID] = name
