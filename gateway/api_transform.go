@@ -62,6 +62,7 @@ var (
 	APIDefinitionRedis           = TykRoot + "/api_definitions.json"
 	DynamicAPIConnTimeout        = 20000
 	JWTKeyPrefix                 = "JWT-KEY-"
+	SEKeyAppName                 = "se"
 )
 
 type Event int
@@ -144,15 +145,12 @@ type TokenAccessRights struct {
 }
 
 type GolangManifest struct {
-	Checksum         string           `json:"checksum"`
-	Signature        string           `json:"signature"`
 	CustomMiddleware CustomMiddleware `json:"custom_middleware"`
 }
 
 type Post struct {
-	Name           string `json:"name"`
-	Path           string `json:"path"`
-	RequireSession bool   `json:"require_session"`
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
 type CustomMiddleware struct {
@@ -528,7 +526,6 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 	defer c.Close()
 
 	var ServApis ServiceAPIS
-	var existingApis ServiceAPIS
 	var appName string
 	var wg sync.WaitGroup
 
@@ -573,22 +570,6 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 	host, err := getInbandIP(SystemConfigFilePath)
 	if err != nil {
 		return apiError("Could not get inband IP"), http.StatusInternalServerError
-	}
-
-	// Load api_defintions.json file and check if incoming /v1/sites/<site-name> is loaded
-	// if its present in api_definitions.json then override it with incoming definition
-	// if not then add it to api_definitions.json
-	// when KMS loads api_defitions.json it would be no-op if /v1/sites/<site-name> is present
-
-	apiDefinitions, err := ioutil.ReadFile(APIDefinitionRedis)
-	if err != nil {
-		return apiError("Could not read api_definitions.json file"), http.StatusInternalServerError
-	}
-
-	err = json.Unmarshal(apiDefinitions, &existingApis)
-	if err != nil {
-		log.Error("Couldn't decode existing API Definition object: ", err)
-		return apiError("Malformed api_definitions.json"), http.StatusBadRequest
 	}
 
 	for service, apis := range ServApis {
@@ -678,62 +659,77 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 				}
 			}
 
+			//Migrate goplugin to api spec using custom_middleware
 			if api.EnableGolangMiddleware {
-				log.Info("Adding custom middleware folder for golang ", APIID)
-				temp["custom_middleware_bundle"] = TykMiddlewareBundleName
-				//golang plugin does not have support for config_data
+				//location of .so files are in TykRoot
+				//api.GolangMiddlewareConfigData.Path and api.GolangMiddlewareConfigData.Name has location
+				middlewareSource := strings.Join([]string{TykRoot, "/", api.GolangMiddlewareConfigData.Path}, "")
+				gm := GolangManifest{}
+				post := Post{Name: api.GolangMiddlewareConfigData.Name, Path: middlewareSource}
+				gm.CustomMiddleware.Post = append(gm.CustomMiddleware.Post, post)
+				gm.CustomMiddleware.Driver = "goplugin"
 
-				// Create api_hash folder under middleware
-				middlewareBundlePath := strings.Join([]string{
-					TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
+				temp["custom_middleware"] = gm.CustomMiddleware
+			}
 
-				sharedObjectPath := strings.Join([]string{TykMiddlewareRoot, "/", TykBundles}, "")
+			/*
+				if api.EnableGolangMiddleware {
+					log.Info("Adding custom middleware folder for golang ", APIID)
+					temp["custom_middleware_bundle"] = TykMiddlewareBundleName
+					//golang plugin does not have support for config_data
 
-				if _, err := os.Stat(middlewareBundlePath); os.IsNotExist(err) {
-					// make folder and copy manifest and middleware.py to it
-					err := os.MkdirAll(middlewareBundlePath, os.ModePerm)
-					if err != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
-					}
+					// Create api_hash folder under middleware
+					middlewareBundlePath := strings.Join([]string{
+						TykMiddlewareRoot, "/", TykBundles, "/", APIID, "_", TykMiddlewareBundleNameHash}, "")
 
-					//Copy shared object ".so" pointed by path middleware/bundles
-					//All *.so will be stored at middelware/bundles
+					sharedObjectPath := strings.Join([]string{TykMiddlewareRoot, "/", TykBundles}, "")
 
-					middlewareDestination := strings.Join([]string{sharedObjectPath, "/", api.GolangMiddlewareConfigData.Path}, "")
-
-					middlewareSource := strings.Join([]string{TykRoot, "/", api.GolangMiddlewareConfigData.Path}, "")
-
-					if _, err := os.Stat(middlewareDestination); os.IsNotExist(err) {
-						_, mErr := copyFile(middlewareSource, middlewareDestination)
-						if mErr != nil {
+					if _, err := os.Stat(middlewareBundlePath); os.IsNotExist(err) {
+						// make folder and copy manifest and middleware.py to it
+						err := os.MkdirAll(middlewareBundlePath, os.ModePerm)
+						if err != nil {
 							return apiError("Middleware Error"), http.StatusInternalServerError
 						}
+
+						//Copy shared object ".so" pointed by path middleware/bundles
+						//All *.so will be stored at middelware/bundles
+
+						middlewareDestination := strings.Join([]string{sharedObjectPath, "/", api.GolangMiddlewareConfigData.Path}, "")
+
+						middlewareSource := strings.Join([]string{TykRoot, "/", api.GolangMiddlewareConfigData.Path}, "")
+
+						if _, err := os.Stat(middlewareDestination); os.IsNotExist(err) {
+							_, mErr := copyFile(middlewareSource, middlewareDestination)
+							if mErr != nil {
+								return apiError("Middleware Error"), http.StatusInternalServerError
+							}
+						}
+
+						//Read sample manifest file and marshal through the structure
+						sharedObjectAbsPathInK8S := strings.Join(
+							[]string{sharedObjectPath, "/", api.GolangMiddlewareConfigData.Path}, "")
+
+						gm := GolangManifest{Checksum: "", Signature: ""}
+						post := Post{Name: api.GolangMiddlewareConfigData.Name, Path: sharedObjectAbsPathInK8S, RequireSession: false}
+						gm.CustomMiddleware.Post = append(gm.CustomMiddleware.Post, post)
+						gm.CustomMiddleware.Driver = "goplugin"
+
+						data, gErr := json.MarshalIndent(gm, "", "  ")
+						if gErr != nil {
+							return apiError("Middleware Error"), http.StatusInternalServerError
+						}
+
+						manifestDestination := strings.Join([]string{middlewareBundlePath, "/", TykManifest}, "")
+
+						err = ioutil.WriteFile(manifestDestination, data, 0644)
+						if err != nil {
+							return apiError("Middleware Error"), http.StatusInternalServerError
+						}
+
+						log.Info("Added golang middleware folder for ", APIID)
 					}
-
-					//Read sample manifest file and marshal through the structure
-					sharedObjectAbsPathInK8S := strings.Join(
-						[]string{sharedObjectPath, "/", api.GolangMiddlewareConfigData.Path}, "")
-
-					gm := GolangManifest{Checksum: "", Signature: ""}
-					post := Post{Name: api.GolangMiddlewareConfigData.Name, Path: sharedObjectAbsPathInK8S, RequireSession: false}
-					gm.CustomMiddleware.Post = append(gm.CustomMiddleware.Post, post)
-					gm.CustomMiddleware.Driver = "goplugin"
-
-					data, gErr := json.MarshalIndent(gm, "", "  ")
-					if gErr != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
-					}
-
-					manifestDestination := strings.Join([]string{middlewareBundlePath, "/", TykManifest}, "")
-
-					err = ioutil.WriteFile(manifestDestination, data, 0644)
-					if err != nil {
-						return apiError("Middleware Error"), http.StatusInternalServerError
-					}
-
-					log.Info("Added golang middleware folder for ", APIID)
 				}
-			}
+			*/
 
 			if api.EnableMTLS {
 				var certs = map[string]string{}
@@ -763,9 +759,6 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 				return apiError("Could not add api to redis store"), http.StatusInternalServerError
 			}
 		}
-
-		//Add API to existingApis structure
-		existingApis[service] = apis
 	}
 
 	// Reload All APIS and process the JWT APIs
@@ -838,7 +831,13 @@ func addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 			//create JWT MAP of API belonging to appName
 			//check if appNamelist contains jsonApi["app_name"]
 			appName := fmt.Sprintf("%v", jsonApi["app_name"])
-			if Contains(jwtDef.AppNameList, appName) && jsonApi["enable_jwt"] == true {
+
+			//nd-sso change start
+			//if Contains(jwtDef.AppNameList, appName) && jsonApi["enable_jwt"] == true {
+			if (Contains(jwtDef.AppNameList, appName) && jsonApi["enable_jwt"] == true) ||
+				(jwtDef.AppName == SEKeyAppName) && (jsonApi["enable_jwt"] == true) {
+				//nd-sso change end
+
 				apiID := jsonApi["api_id"].(string)
 				name := jsonApi["name"].(string)
 				JWTAPIMap[apiID] = name
@@ -915,8 +914,12 @@ func addOrDeleteJWTKey(e Event, appName string) error {
 			return err
 		}
 
+		//nd-sso change - start
 		//Check if appName is in app_name_list
-		if Contains(jwtDef.AppNameList, appName) {
+		//if Contains(jwtDef.AppNameList, appName)
+		if Contains(jwtDef.AppNameList, appName) || (jwtDef.AppName == SEKeyAppName) {
+			//nd-sso change - end
+
 			//Create API MAP and update the key
 			apis, err := redis.Strings(c.Do("KEYS", "*"))
 			if err != nil {
@@ -939,7 +942,13 @@ func addOrDeleteJWTKey(e Event, appName string) error {
 
 					//create JWT MAP of API belonging to appName
 					aName := fmt.Sprintf("%v", jsonApi["app_name"])
-					if Contains(jwtDef.AppNameList, aName) && jsonApi["enable_jwt"] == true {
+
+					//nd-sso change - start
+					//if Contains(jwtDef.AppNameList, aName) && jsonApi["enable_jwt"] == true {
+					if (Contains(jwtDef.AppNameList, aName) && jsonApi["enable_jwt"] == true) ||
+						(jwtDef.AppName == SEKeyAppName && jsonApi["enable_jwt"] == true) {
+						//nd-sso change - end
+
 						apiID := jsonApi["api_id"].(string)
 						name := jsonApi["name"].(string)
 						JWTAPIMap[apiID] = name
@@ -1225,7 +1234,6 @@ func deleteAPIById(apiID string) (interface{}, int) {
 
 func deleteAPIByService(service string) (interface{}, int) {
 	var wg sync.WaitGroup
-	var existingApis ServiceAPIS
 	var apiData string
 
 	c := GetRedisConn()
@@ -1238,7 +1246,15 @@ func deleteAPIByService(service string) (interface{}, int) {
 	keys, err := redis.Strings(c.Do("KEYS", service+"-*"))
 	if err != nil {
 		log.Warning("API does not exists ", err)
-		return apiError("Api does not exists"), http.StatusInternalServerError
+		//Return 200 OK if api is not found
+		response := apiModifyKeySuccess{
+			Key:    service,
+			Status: "ok",
+			Action: "api not found",
+		}
+
+		return response, http.StatusOK
+		//return apiError("Api does not exists"), http.StatusInternalServerError
 	}
 
 	for pos, apiID := range keys {
@@ -1283,20 +1299,6 @@ func deleteAPIByService(service string) (interface{}, int) {
 		Status: "ok",
 		Action: "deleted",
 	}
-
-	// Delete service api entry from api_definitions.json
-	apiDefinitions, err := ioutil.ReadFile(APIDefinitionRedis)
-	if err != nil {
-		return apiError("Could not read api_definitions.json file"), http.StatusInternalServerError
-	}
-
-	err = json.Unmarshal(apiDefinitions, &existingApis)
-	if err != nil {
-		log.Error("Couldn't decode existing API Definition object: ", err)
-		return apiError("Malformed api_definitions.json"), http.StatusBadRequest
-	}
-
-	delete(existingApis, service)
 
 	// Reload All APIS and process the JWT APIs
 	wg.Add(1)

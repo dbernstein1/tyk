@@ -747,10 +747,16 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 	//Validate RootCA
 	if p.TykAPISpec.Proxy.Transport.SSLForceRootCACheck && config.Global().SSLForceRootCACheck {
 		// DialTLS is not executed if proxy is used
-		httpTransport := roundTripper.(*http.Transport)
-
+		var tlsConfig *tls.Config
+		if outReqIsWebsocket {
+			tlsConfig = roundTripper.(*WSDialer).TLSClientConfig
+		} else {
+			tlsConfig = roundTripper.(*http.Transport).TLSClientConfig
+		}
+		//httpTransport := roundTripper.(*http.Transport)
+		//tlsConfig := httpTransport.TLSClientConfig
 		log.Debug("Using forced SSL RootCA check")
-		tlsConfig := httpTransport.TLSClientConfig
+
 		host, _, _ := net.SplitHostPort(outreq.Host)
 
 		p.verifyRootCA(tlsConfig, host)
