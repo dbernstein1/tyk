@@ -25,7 +25,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-retryablehttp"
-	"gopkg.in/yaml.v2"
 )
 
 //nolint
@@ -567,10 +566,7 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 		return apiError("Internal Error. Try after some time"), http.StatusInternalServerError
 	}
 
-	host, err := getInbandIP(SystemConfigFilePath)
-	if err != nil {
-		return apiError("Could not get inband IP"), http.StatusInternalServerError
-	}
+	host := os.Getenv("HOST_IP")
 
 	for service, apis := range ServApis {
 		log.Debug("Processing service: ", service)
@@ -1308,31 +1304,6 @@ func deleteAPIByService(service string) (interface{}, int) {
 	log.Info("API reload finished")
 
 	return response, http.StatusOK
-}
-
-func getInbandIP(SysConfPath string) (string, error) {
-
-	type InBandNet struct {
-		Subnet    string `yaml:"subnet"`
-		Iface     string `yaml:"iface"`
-		GatewayIP string `yaml:"gatewayIP"`
-		IfaceIP   string `yaml:"ifaceIP"`
-	}
-
-	type Inband struct {
-		InBandNetwork InBandNet `yaml:"inbandNetwork"`
-	}
-
-	var data Inband
-
-	SysConfData, err := ioutil.ReadFile(SysConfPath)
-
-	err = yaml.Unmarshal(SysConfData, &data)
-	if err != nil {
-		return "", err
-	}
-
-	return data.InBandNetwork.IfaceIP, nil
 }
 
 func RemoveDirContents(dir string) error {
