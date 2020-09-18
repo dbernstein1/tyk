@@ -1326,6 +1326,12 @@ func getInbandIP(SysConfPath string) (string, error) {
 	var data Inband
 
 	SysConfData, err := ioutil.ReadFile(SysConfPath)
+	if err != nil {
+		log.Error("Could not read systemconfig file")
+		return "", err
+	}
+
+	log.Info("system config file", SysConfData)
 
 	err = yaml.Unmarshal(SysConfData, &data)
 	if err != nil {
