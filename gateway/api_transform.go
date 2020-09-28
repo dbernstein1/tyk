@@ -54,7 +54,7 @@ var (
 	TykMiddlewareSrcFile         = TykRoot + TykMiddlewareFile
 	TykMiddlewareManifestSrcFile = TykRoot + TykManifest
 	JWTDefinitionsSpec           = TykRoot + "/jwt_definition.json"
-	TykConfFilePath              = TykRoot + "/tyk.conf"
+	TykConfFilePath              = config.Global().OriginalPath
 	JWTApiKeySpec                = TykRoot + "/token_jwt.json"
 	APITemplateOpenSpec          = TykRoot + "/api_template_open.json"
 	APITemplateJWTSpec           = TykRoot + "/api_template_jwt.json"
