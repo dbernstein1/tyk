@@ -267,9 +267,29 @@ func lookPath() (argv0 string, err error) {
 }
 
 func setEnvs(l net.Listener) (fd uintptr, err error) {
-	v := reflect.ValueOf(l).Elem().FieldByName("fd").Elem()
+	v := reflect.ValueOf(l)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	// check if we have net.Listener embedded. Its a workaround to support
+	// crypto/tls Listen
+	if ls := v.FieldByName("Listener"); ls.IsValid() {
+		for hasElem(ls) {
+			ls = ls.Elem()
+		}
+		v = ls
+	}
+	if v.Kind() != reflect.Struct {
+		err = fmt.Errorf("Not supported by current Go version")
+		return
+	}
+	v = v.FieldByName("fd")
+	if !v.IsValid() {
+		err = fmt.Errorf("Not supported by current Go version")
+		return
+	}
+	v = v.Elem()
 	fdField := v.FieldByName("sysfd")
-
 	if !fdField.IsValid() {
 		fdField = v.FieldByName("pfd").FieldByName("Sysfd")
 	}
@@ -297,4 +317,13 @@ func setEnvs(l net.Listener) (fd uintptr, err error) {
 		return
 	}
 	return
+}
+
+func hasElem(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Interface:
+		return true
+	default:
+		return false
+	}
 }
