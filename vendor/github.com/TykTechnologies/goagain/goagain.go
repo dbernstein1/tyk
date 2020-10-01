@@ -267,19 +267,35 @@ func lookPath() (argv0 string, err error) {
 }
 
 func setEnvs(l net.Listener) (fd uintptr, err error) {
-	v := reflect.ValueOf(l).Elem().FieldByName("fd").Elem()
+	v := reflect.ValueOf(l)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	// check if we have net.Listener embedded. Its a workaround to support
+	// crypto/tls Listen
+	if ls := v.FieldByName("Listener"); ls.IsValid() {
+		for hasElem(ls) {
+			ls = ls.Elem()
+		}
+		v = ls
+	}
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("Not supported by current Go version1")
+	}
+	v = v.FieldByName("fd")
+	if !v.IsValid() {
+		return fmt.Errorf("Not supported by current Go version2")
+	}
+	v = v.Elem()
 	fdField := v.FieldByName("sysfd")
-
 	if !fdField.IsValid() {
 		fdField = v.FieldByName("pfd").FieldByName("Sysfd")
 	}
 
 	if !fdField.IsValid() {
-		err = fmt.Errorf("Not supported by current Go version")
-		return
+		return fmt.Errorf("Not supported by current Go version3")
 	}
-
-	fd = uintptr(fdField.Int())
+	fd := uintptr(fdField.Int())
 
 	_, _, e1 := syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_SETFD, 0)
 	if 0 != e1 {
