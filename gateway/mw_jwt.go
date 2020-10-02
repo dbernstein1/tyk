@@ -742,12 +742,15 @@ func ParseRSAPublicKey(data []byte) (interface{}, error) {
 	var err error
 	pub, err = x509.ParsePKIXPublicKey(input)
 	if err != nil {
-		cert, err0 := x509.ParseCertificate(input)
-		if err0 != nil {
-			return nil, err0
+		pub, err = x509.ParsePKCS1PublicKey(input)
+		if err != nil {
+			cert, err0 := x509.ParseCertificate(input)
+			if err0 != nil {
+				return nil, err0
+			}
+			pub = cert.PublicKey
+			err = nil
 		}
-		pub = cert.PublicKey
-		err = nil
 	}
 	return pub, err
 }
@@ -861,7 +864,8 @@ func parseJWTKey(signingMethod string, secret interface{}) (interface{}, error) 
 	case RSASign, ECDSASign:
 		switch e := secret.(type) {
 		case []byte:
-			key, err := ParseRSAPublicKey(e)
+			// key, err := ParseRSAPublicKey(e)
+			key, err := jwt.ParseRSAPublicKeyFromPEM(e)
 			if err != nil {
 				log.WithError(err).Error("Failed to decode JWT key")
 				return nil, errors.New("Failed to decode JWT key")
