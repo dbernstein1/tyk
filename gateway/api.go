@@ -39,7 +39,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -1200,11 +1199,12 @@ func hotReloadHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.WithFields(logrus.Fields{
 		"prefix": "api",
-	}).Info("Triggering Hot Reload")
+	}).Info("Triggering Restart")
 	doJSONWrite(w, http.StatusOK, apiOk(""))
-	if err := syscall.Kill(hostDetails.PID, syscall.SIGUSR2); err != nil {
-		log.Error("Process reload failed: ", err)
-	}
+	// if err := syscall.Kill(hostDetails.PID, syscall.SIGUSR2); err != nil {
+	// 	log.Error("Process reload failed: ", err)
+	// }
+	os.Exit(0)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
