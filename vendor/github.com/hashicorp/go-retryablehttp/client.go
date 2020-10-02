@@ -228,19 +228,6 @@ type Logger interface {
 	Printf(string, ...interface{})
 }
 
-<<<<<<< HEAD
-=======
-// To adapt an hclog.Logger to Logger for use by the existing hook functions
-// without changing the API.
-type hookLogger struct {
-	logger hclog.Logger
-}
-
-func (h hookLogger) Printf(s string, args ...interface{}) {
-	h.logger.Info(fmt.Sprintf(s, args...))
-}
-
->>>>>>> dynamic api loader first cut
 // RequestLogHook allows a function to run before each retry. The HTTP
 // request which will be made, and the retry number (0 for the initial
 // request) are available to users. The internal logger is exposed to
@@ -260,11 +247,7 @@ type ResponseLogHook func(Logger, *http.Response)
 // and returns the response to the caller. If CheckRetry returns an error,
 // that error value is returned in lieu of the error from the request. The
 // Client will close any response body when retrying, but if the retry is
-<<<<<<< HEAD
 // aborted it is up to the CheckResponse callback to properly close any
-=======
-// aborted it is up to the CheckRetry callback to properly close any
->>>>>>> dynamic api loader first cut
 // response body before returning.
 type CheckRetry func(ctx context.Context, resp *http.Response, err error) (bool, error)
 
@@ -283,11 +266,7 @@ type ErrorHandler func(resp *http.Response, err error, numTries int) (*http.Resp
 // like automatic retries to tolerate minor outages.
 type Client struct {
 	HTTPClient *http.Client // Internal HTTP client.
-<<<<<<< HEAD
 	Logger     Logger       // Customer logger instance.
-=======
-	Logger     interface{}  // Customer logger instance. Can be either Logger or hclog.Logger
->>>>>>> dynamic api loader first cut
 
 	RetryWaitMin time.Duration // Minimum time to wait
 	RetryWaitMax time.Duration // Maximum time to wait
@@ -310,21 +289,12 @@ type Client struct {
 
 	// ErrorHandler specifies the custom error handler to use, if any
 	ErrorHandler ErrorHandler
-<<<<<<< HEAD
-=======
-
-	loggerInit sync.Once
->>>>>>> dynamic api loader first cut
 }
 
 // NewClient creates a new Client with default settings.
 func NewClient() *Client {
 	return &Client{
-<<<<<<< HEAD
 		HTTPClient:   cleanhttp.DefaultClient(),
-=======
-		HTTPClient:   cleanhttp.DefaultPooledClient(),
->>>>>>> dynamic api loader first cut
 		Logger:       log.New(os.Stderr, "", log.LstdFlags),
 		RetryWaitMin: defaultRetryWaitMin,
 		RetryWaitMax: defaultRetryWaitMax,
@@ -334,29 +304,6 @@ func NewClient() *Client {
 	}
 }
 
-<<<<<<< HEAD
-=======
-func (c *Client) logger() interface{} {
-	c.loggerInit.Do(func() {
-		if c.Logger == nil {
-			return
-		}
-
-		switch c.Logger.(type) {
-		case Logger:
-			// ok
-		case hclog.Logger:
-			// ok
-		default:
-			// This should happen in dev when they are setting Logger and work on code, not in prod.
-			panic(fmt.Sprintf("invalid logger type passed, must be Logger or hclog.Logger, was %T", c.Logger))
-		}
-	})
-
-	return c.Logger
-}
-
->>>>>>> dynamic api loader first cut
 // DefaultRetryPolicy provides a default callback for Client.CheckRetry, which
 // will retry on connection errors and server errors.
 func DefaultRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error) {
@@ -438,24 +385,8 @@ func PassthroughErrorHandler(resp *http.Response, err error, _ int) (*http.Respo
 
 // Do wraps calling an HTTP method with retries.
 func (c *Client) Do(req *Request) (*http.Response, error) {
-<<<<<<< HEAD
 	if c.Logger != nil {
 		c.Logger.Printf("[DEBUG] %s %s", req.Method, req.URL)
-=======
-	if c.HTTPClient == nil {
-		c.HTTPClient = cleanhttp.DefaultPooledClient()
-	}
-
-	logger := c.logger()
-
-	if logger != nil {
-		switch v := logger.(type) {
-		case Logger:
-			v.Printf("[DEBUG] %s %s", req.Method, req.URL)
-		case hclog.Logger:
-			v.Debug("performing request", "method", req.Method, "url", req.URL)
-		}
->>>>>>> dynamic api loader first cut
 	}
 
 	var resp *http.Response
@@ -468,10 +399,6 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 		if req.body != nil {
 			body, err := req.body()
 			if err != nil {
-<<<<<<< HEAD
-=======
-				c.HTTPClient.CloseIdleConnections()
->>>>>>> dynamic api loader first cut
 				return resp, err
 			}
 			if c, ok := body.(io.ReadCloser); ok {
@@ -481,20 +408,8 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 			}
 		}
 
-<<<<<<< HEAD
 		if c.RequestLogHook != nil {
 			c.RequestLogHook(c.Logger, req.Request, i)
-=======
-		if c.RequestLogHook != nil && logger != nil {
-			switch v := logger.(type) {
-			case Logger:
-				c.RequestLogHook(v, req.Request, i)
-			case hclog.Logger:
-				c.RequestLogHook(hookLogger{v}, req.Request, i)
-			default:
-				c.RequestLogHook(nil, req.Request, i)
-			}
->>>>>>> dynamic api loader first cut
 		}
 
 		// Attempt the request
@@ -506,7 +421,6 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 		// Check if we should continue with retries.
 		checkOK, checkErr := c.CheckRetry(req.Context(), resp, err)
 
-<<<<<<< HEAD
 		if err != nil {
 			if c.Logger != nil {
 				c.Logger.Printf("[ERR] %s %s request failed: %v", req.Method, req.URL, err)
@@ -517,30 +431,6 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 			if c.ResponseLogHook != nil {
 				// Call the response logger function if provided.
 				c.ResponseLogHook(c.Logger, resp)
-=======
-		if logger != nil {
-			if err != nil {
-				switch v := logger.(type) {
-				case Logger:
-					v.Printf("[ERR] %s %s request failed: %v", req.Method, req.URL, err)
-				case hclog.Logger:
-					v.Error("request failed", "error", err, "method", req.Method, "url", req.URL)
-				}
-			} else {
-				// Call this here to maintain the behavior of logging all requests,
-				// even if CheckRetry signals to stop.
-				if c.ResponseLogHook != nil {
-					// Call the response logger function if provided.
-					switch v := logger.(type) {
-					case Logger:
-						c.ResponseLogHook(v, resp)
-					case hclog.Logger:
-						c.ResponseLogHook(hookLogger{v}, resp)
-					default:
-						c.ResponseLogHook(nil, resp)
-					}
-				}
->>>>>>> dynamic api loader first cut
 			}
 		}
 
@@ -549,10 +439,6 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 			if checkErr != nil {
 				err = checkErr
 			}
-<<<<<<< HEAD
-=======
-			c.HTTPClient.CloseIdleConnections()
->>>>>>> dynamic api loader first cut
 			return resp, err
 		}
 
@@ -573,35 +459,17 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 		if code > 0 {
 			desc = fmt.Sprintf("%s (status: %d)", desc, code)
 		}
-<<<<<<< HEAD
 		if c.Logger != nil {
 			c.Logger.Printf("[DEBUG] %s: retrying in %s (%d left)", desc, wait, remain)
 		}
 		select {
 		case <-req.Context().Done():
-=======
-		if logger != nil {
-			switch v := logger.(type) {
-			case Logger:
-				v.Printf("[DEBUG] %s: retrying in %s (%d left)", desc, wait, remain)
-			case hclog.Logger:
-				v.Debug("retrying request", "request", desc, "timeout", wait, "remaining", remain)
-			}
-		}
-		select {
-		case <-req.Context().Done():
-			c.HTTPClient.CloseIdleConnections()
->>>>>>> dynamic api loader first cut
 			return nil, req.Context().Err()
 		case <-time.After(wait):
 		}
 	}
 
 	if c.ErrorHandler != nil {
-<<<<<<< HEAD
-=======
-		c.HTTPClient.CloseIdleConnections()
->>>>>>> dynamic api loader first cut
 		return c.ErrorHandler(resp, err, c.RetryMax+1)
 	}
 
@@ -610,10 +478,6 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 	if resp != nil {
 		resp.Body.Close()
 	}
-<<<<<<< HEAD
-=======
-	c.HTTPClient.CloseIdleConnections()
->>>>>>> dynamic api loader first cut
 	return nil, fmt.Errorf("%s %s giving up after %d attempts",
 		req.Method, req.URL, c.RetryMax+1)
 }
@@ -623,18 +487,8 @@ func (c *Client) drainBody(body io.ReadCloser) {
 	defer body.Close()
 	_, err := io.Copy(ioutil.Discard, io.LimitReader(body, respReadLimit))
 	if err != nil {
-<<<<<<< HEAD
 		if c.Logger != nil {
 			c.Logger.Printf("[ERR] error reading response body: %v", err)
-=======
-		if c.logger() != nil {
-			switch v := c.logger().(type) {
-			case Logger:
-				v.Printf("[ERR] error reading response body: %v", err)
-			case hclog.Logger:
-				v.Error("error reading response body", "error", err)
-			}
->>>>>>> dynamic api loader first cut
 		}
 	}
 }
