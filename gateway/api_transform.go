@@ -54,14 +54,14 @@ var (
 	TykMiddlewareSrcFile         = TykRoot + TykMiddlewareFile
 	TykMiddlewareManifestSrcFile = TykRoot + TykManifest
 	JWTDefinitionsSpec           = TykRoot + "/jwt_definition.json"
-	TykConfFilePath              = TykRoot + "/tyk.conf"
-	JWTApiKeySpec                = TykRoot + "/token_jwt.json"
-	APITemplateOpenSpec          = TykRoot + "/api_template_open.json"
-	APITemplateJWTSpec           = TykRoot + "/api_template_jwt.json"
-	APIDefinitionRedis           = TykRoot + "/api_definitions.json"
-	DynamicAPIConnTimeout        = 20000
-	JWTKeyPrefix                 = "JWT-KEY-"
-	SEKeyAppName                 = "se"
+	//TykConfFilePath              = TykRoot + "/tyk.conf"
+	JWTApiKeySpec         = TykRoot + "/token_jwt.json"
+	APITemplateOpenSpec   = TykRoot + "/api_template_open.json"
+	APITemplateJWTSpec    = TykRoot + "/api_template_jwt.json"
+	APIDefinitionRedis    = TykRoot + "/api_definitions.json"
+	DynamicAPIConnTimeout = 20000
+	JWTKeyPrefix          = "JWT-KEY-"
+	SEKeyAppName          = "se"
 )
 
 type Event int
@@ -313,7 +313,7 @@ func (gw *Gateway) apiLoader(w http.ResponseWriter, r *http.Request) {
 func (gw *Gateway) deleteJWTKey(keyID string, appName string) (interface{}, int) {
 	var tykConf map[string]interface{}
 
-	tykConfData, err := ioutil.ReadFile(TykConfFilePath)
+	tykConfData, err := ioutil.ReadFile(gw.GetConfig().OriginalPath)
 	if err != nil {
 		log.Error("Error reading TyK conf", err)
 		return apiError("could not get authorization token"), http.StatusInternalServerError
@@ -790,7 +790,7 @@ func (gw *Gateway) addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 	var JWTAPIMap = make(map[string]string)
 	var tykConf map[string]interface{}
 
-	tykConfData, err := ioutil.ReadFile(TykConfFilePath)
+	tykConfData, err := ioutil.ReadFile(gw.GetConfig().OriginalPath)
 	if err != nil {
 		log.Error("Error reading TyK conf", err)
 		return err
@@ -872,7 +872,7 @@ func (gw *Gateway) addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 func (gw *Gateway) addOrDeleteJWTKey(e Event, appName string) error {
 	var tykConf map[string]interface{}
 
-	tykConfData, err := ioutil.ReadFile(TykConfFilePath)
+	tykConfData, err := ioutil.ReadFile(gw.GetConfig().OriginalPath)
 	if err != nil {
 		log.Error("Error reading TyK conf", err)
 		return err
