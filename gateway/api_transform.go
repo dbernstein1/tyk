@@ -1241,7 +1241,7 @@ func (gw *Gateway) deleteAPIByService(service string) (interface{}, int) {
 
 	// Load API Definition from Redis DB
 	keys, err := redis.Strings(c.Do("KEYS", service+"-*"))
-	if err != nil {
+	if len(keys) == 0 {
 		log.Warning("API does not exists ", err)
 		//Return 200 OK if api is not found
 		response := apiModifyKeySuccess{
