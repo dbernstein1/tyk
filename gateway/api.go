@@ -1248,6 +1248,9 @@ func resetHandler(fn func()) http.HandlerFunc {
 }
 
 func hotReloadHandler(w http.ResponseWriter, r *http.Request) {
+	m.Lock()
+	defer m.Unlock()
+
 	log.WithFields(logrus.Fields{
 		"prefix": "api",
 	}).Info("Triggering Hot Reload")
