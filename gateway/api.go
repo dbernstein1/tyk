@@ -1952,6 +1952,7 @@ func (gw *Gateway) hotReloadHandler(w http.ResponseWriter, r *http.Request) {
 		"prefix": "api",
 	}).Info("Triggering Restart")
 	doJSONWrite(w, http.StatusOK, apiOk(""))
+	time.Sleep(2 * time.Second)
 	// if err := syscall.Kill(hostDetails.PID, syscall.SIGUSR2); err != nil {
 	// 	log.Error("Process reload failed: ", err)
 	// }
