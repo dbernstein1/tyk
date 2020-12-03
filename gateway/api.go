@@ -1947,6 +1947,9 @@ func (gw *Gateway) resetHandler(fn func()) http.HandlerFunc {
 
 // Cisco Change
 func (gw *Gateway) hotReloadHandler(w http.ResponseWriter, r *http.Request) {
+	m.Lock()
+	defer m.Unlock()
+
 	log.WithFields(logrus.Fields{
 		"prefix": "api",
 	}).Info("Triggering Hot Reload")
