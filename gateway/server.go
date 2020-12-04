@@ -471,7 +471,7 @@ func (gw *Gateway) syncAPISpecs() (int, error) {
 	} else if config.Global().UseRedisDBAppConfig {
 		mainLog.Debug("Using Redis Configuration")
 		var err error
-		apiSpecs, err = loader.FromRedis(config.Global().RedisDBAppConfOptions)
+		s, err = loader.FromRedis(config.Global().RedisDBAppConfOptions)
 		if err != nil {
 			return 0, err
 		}
