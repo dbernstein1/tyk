@@ -481,7 +481,7 @@ func (gw *Gateway) syncAPISpecs() (int, error) {
 	} else if gw.GetConfig().UseRedisDBAppConfig { // Cisco Change
 		mainLog.Debug("Using Redis Configuration")
 		var err error
-		gw.apiSpecs, err = loader.FromRedis(gw.GetConfig().RedisDBAppConfOptions)
+		s, err = loader.FromRedis(gw.GetConfig().RedisDBAppConfOptions)
 		if err != nil {
 			return 0, err
 		}
