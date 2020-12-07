@@ -593,9 +593,11 @@ func (a APIDefinitionLoader) FromRedis(db config.RedisDBAppConfOptionsConfig) ([
 	if err != nil {
 		log.Error("Couldn't get api definition from redis db: ", err)
 	}
+	var count = 0
 	for _, v := range apiKeys {
 		//Skip loading JWT-KEY keys
 		if !strings.HasPrefix(v, "JWT-KEY-") {
+			count++
 			apiDefinition, _ := redis.String(c.Do("GET", v))
 			def := a.ParseDefinition(strings.NewReader(apiDefinition))
 			nestDef := nestedApiDefinition{APIDefinition: &def}
@@ -603,6 +605,7 @@ func (a APIDefinitionLoader) FromRedis(db config.RedisDBAppConfOptionsConfig) ([
 			specs = append(specs, spec)
 		}
 	}
+	log.Info("Found APIs: ", count)
 	return specs, nil
 }
 
