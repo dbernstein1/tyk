@@ -998,6 +998,9 @@ type Config struct {
 	SSLForceRootCACheck bool   `json:"ssl_force_rootca_check"`
 	SSLRootCACert       string `json:"ssl_rootca_cert"`
 
+	//Cisco - Enable generic endpoint analytics for all HTTP verb for all requests
+	EnableGenericEndpointAnalytics bool `json:"enable_generic_endpoint_analytics"`
+
 	// This section enables the use of the KV capabilities to substitute configuration values.
 	// See more details https://tyk.io/docs/tyk-configuration-reference/kv-store/
 	KV struct {
