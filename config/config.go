@@ -485,6 +485,9 @@ type Config struct {
 	SSLForceRootCACheck bool   `json:"ssl_force_rootca_check"`
 	SSLRootCACert       string `json:"ssl_rootca_cert"`
 
+	//Cisco - Enable generic endpoint analytics for all HTTP verb for all requests
+	EnableGenericEndpointAnalytics bool `json:"enable_generic_endpoint_analytics"`
+
 	KV struct {
 		Consul ConsulConfig `json:"consul"`
 		Vault  VaultConfig  `json:"vault"`
