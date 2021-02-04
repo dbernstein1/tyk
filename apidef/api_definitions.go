@@ -508,7 +508,9 @@ type RequestSigningMeta struct {
 }
 
 type ProxyConfig struct {
-	PreserveHostHeader          bool                          `bson:"preserve_host_header" json:"preserve_host_header"`
+	PreserveHostHeader bool `bson:"preserve_host_header" json:"preserve_host_header"`
+	//Cisco - enable host re-write from header
+	UpdateHostHeader            string                        `bson:"update_host_header" json:"update_host_header"`
 	ListenPath                  string                        `bson:"listen_path" json:"listen_path"`
 	TargetURL                   string                        `bson:"target_url" json:"target_url"`
 	DisableStripSlash           bool                          `bson:"disable_strip_slash" json:"disable_strip_slash"`
