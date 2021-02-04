@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
@@ -277,6 +278,16 @@ func TykNewSingleHostReverseProxy(target *url.URL, spec *APISpec, logger *logrus
 
 		if !spec.Proxy.PreserveHostHeader {
 			req.Host = targetToUse.Host
+		}
+
+		//Cisco change
+		if len(spec.Proxy.UpdateHostHeader) > 0 {
+			//Normalize header
+			header := textproto.CanonicalMIMEHeaderKey(spec.Proxy.UpdateHostHeader)
+			updateHost, ok := req.Header[header]
+			if ok {
+				req.Host = updateHost[0]
+			}
 		}
 
 		if targetQuery == "" || req.URL.RawQuery == "" {
