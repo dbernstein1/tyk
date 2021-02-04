@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
@@ -289,6 +290,19 @@ func (gw *Gateway) TykNewSingleHostReverseProxy(target *url.URL, spec *APISpec, 
 
 		if !spec.Proxy.PreserveHostHeader {
 			req.Host = targetToUse.Host
+		}
+
+		//Cisco change
+		if len(spec.Proxy.UpdateHostHeader) > 0 {
+			//Normalize header
+			log.Debug("Detected UpdateHostHeader ", spec.Proxy.UpdateHostHeader)
+			header := textproto.CanonicalMIMEHeaderKey(spec.Proxy.UpdateHostHeader)
+			log.Debug("CanonicalMIMEHeaderKey form ", spec.Proxy.UpdateHostHeader)
+			updateHost, ok := req.Header[header]
+			if ok {
+				log.Debug("Updating upstream host", updateHost[0])
+				req.Host = updateHost[0]
+			}
 		}
 
 		if targetQuery == "" || req.URL.RawQuery == "" {
