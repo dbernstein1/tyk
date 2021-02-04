@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"net/textproto"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -303,6 +305,29 @@ func recordDetail(r *http.Request, spec *APISpec) bool {
 func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http.Response {
 	log.Debug("Started proxy")
 	defer s.Base().UpdateRequestSession(r)
+
+	log.Debug("Check update_host_header")
+	if len(s.Spec.Proxy.UpdateHostHeader) > 0 {
+		//Normalize header
+		log.Debug("Detected UpdateHostHeader ", s.Spec.Proxy.UpdateHostHeader)
+		header := textproto.CanonicalMIMEHeaderKey(s.Spec.Proxy.UpdateHostHeader)
+		log.Debug("CanonicalMIMEHeaderKey form ", s.Spec.Proxy.UpdateHostHeader)
+		updateHost, ok := r.Header[header]
+		if ok {
+			//Create Reverse proxy
+			director := func(req *http.Request) {
+				req.Header.Del(header)
+				log.Debug("Updating upstream host", updateHost[0])
+				req.URL.Host = updateHost[0]
+			}
+
+			proxy := &httputil.ReverseProxy{Director: director}
+			log.Debug("Start update_host_header proxy")
+			proxy.ServeHTTP(w, r)
+			log.Debug("Done update_host_header proxy")
+			return nil
+		}
+	}
 
 	versionDef := s.Spec.VersionDefinition
 	if !s.Spec.VersionData.NotVersioned && versionDef.Location == "url" && versionDef.StripPath {
