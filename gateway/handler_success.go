@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/textproto"
-	"net/url"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -312,9 +311,9 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 	log.Debug("Check update_host_header")
 	if len(s.Spec.Proxy.UpdateHostHeader) > 0 {
 		//Normalize header
-		log.Debug("Detected UpdateHostHeader ", s.Spec.Proxy.UpdateHostHeader)
+		log.Debug("Handler_success - Detected UpdateHostHeader ", s.Spec.Proxy.UpdateHostHeader)
 		header := textproto.CanonicalMIMEHeaderKey(s.Spec.Proxy.UpdateHostHeader)
-		log.Debug("CanonicalMIMEHeaderKey form ", s.Spec.Proxy.UpdateHostHeader)
+		log.Debug("Handler_success - CanonicalMIMEHeaderKey form ", s.Spec.Proxy.UpdateHostHeader)
 		updateHost, ok := r.Header[header]
 		if ok {
 			//Create Reverse proxy
@@ -323,29 +322,34 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 
 				//Reset the rawquery assuming URLRewrite may have reset the path
 				if origURL := ctxGetOrigRequestURL(req); origURL != nil {
-					log.Debug("Original Request URL", origURL.String())
+					log.Debug("Handler_success - Original Request URL", origURL.String())
 					req.URL = origURL
 				}
-
-				//update the Host from header and scheme from target spec
-				log.Debug("Updating upstream host", updateHost[0])
 
 				//Set host
 				req.URL.Host = updateHost[0]
 
-				targetUrl, _ := url.Parse(s.Spec.Proxy.TargetURL)
+				//set scheme
+				req.URL.Scheme = "https"
 
-				//Set Scheme
-				switch targetUrl.Scheme {
-				case "http":
-					req.URL.Scheme = "http"
-				case "https":
-					req.URL.Scheme = "https"
-				case "ws":
-					req.URL.Scheme = "http"
-				case "wss":
-					req.URL.Scheme = "https"
-				}
+				// switch r.URL.Scheme {
+				// case "http":
+				// 	req.URL.Scheme = "http"
+				// case "https":
+				// 	req.URL.Scheme = "https"
+				// case "ws":
+				// 	req.URL.Scheme = "http"
+				// case "wss":
+				// 	req.URL.Scheme = "https"
+				// }
+
+				log.Debug("Handler_success - request scheme", req.URL.Scheme)
+				log.Debug("Handler_success - request Host ", req.URL.Host)
+				log.Debug("Handler_success - request URL ", req.URL)
+
+				//update the Host from header and scheme from target spec
+				// targetUrl, _ := url.Parse(s.Spec.Proxy.TargetURL)
+
 			}
 
 			proxy := &httputil.ReverseProxy{Director: director}
@@ -355,6 +359,8 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 			proxy.ServeHTTP(w, r)
 			log.Debug("Done update_host_header proxy")
 			return nil
+		} else {
+			log.Debug("update_host_header header not found")
 		}
 	}
 
