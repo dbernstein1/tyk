@@ -332,24 +332,9 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 				//set scheme
 				req.URL.Scheme = "https"
 
-				// switch r.URL.Scheme {
-				// case "http":
-				// 	req.URL.Scheme = "http"
-				// case "https":
-				// 	req.URL.Scheme = "https"
-				// case "ws":
-				// 	req.URL.Scheme = "http"
-				// case "wss":
-				// 	req.URL.Scheme = "https"
-				// }
-
 				log.Debug("Handler_success - request scheme", req.URL.Scheme)
 				log.Debug("Handler_success - request Host ", req.URL.Host)
 				log.Debug("Handler_success - request URL ", req.URL)
-
-				//update the Host from header and scheme from target spec
-				// targetUrl, _ := url.Parse(s.Spec.Proxy.TargetURL)
-
 			}
 
 			proxy := &httputil.ReverseProxy{Director: director}
