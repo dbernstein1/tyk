@@ -851,7 +851,7 @@ func addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 	log.Debug(fmt.Sprintf("JWT Public Key %s", jwtPublicKey))
 	count := 0
 	for {
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 		ret := processJWTApiKey(tykConf, JWTAPIMap, jwtPublicKey, jwtDef.JWTAPIKey, "localhost", ADD)
 		count++
 		if ret == true {
@@ -962,7 +962,7 @@ func addOrDeleteJWTKey(e Event, appName string) error {
 			}
 			count := 0
 			for {
-				time.Sleep(3 * time.Second)
+				time.Sleep(1 * time.Second)
 				ret := processJWTApiKey(tykConf, JWTAPIMap, jwtKey, jwtDef.JWTAPIKey, "localhost", e)
 				count++
 				if ret == true {

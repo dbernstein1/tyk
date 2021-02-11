@@ -2,10 +2,14 @@ package gateway
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/textproto"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -304,6 +308,47 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 	log.Debug("Started proxy")
 	defer s.Base().UpdateRequestSession(r)
 
+	log.Debug("Check update_host_header")
+	if len(s.Spec.Proxy.UpdateHostHeader) > 0 {
+		//Normalize header
+		log.Debug("Handler_success - Detected UpdateHostHeader ", s.Spec.Proxy.UpdateHostHeader)
+		header := textproto.CanonicalMIMEHeaderKey(s.Spec.Proxy.UpdateHostHeader)
+		log.Debug("Handler_success - CanonicalMIMEHeaderKey form ", s.Spec.Proxy.UpdateHostHeader)
+		updateHost, ok := r.Header[header]
+		if ok {
+			//Create Reverse proxy
+			director := func(req *http.Request) {
+				req.Header.Del(header)
+
+				//Reset the rawquery assuming URLRewrite may have reset the path
+				if origURL := ctxGetOrigRequestURL(req); origURL != nil {
+					log.Debug("Handler_success - Original Request URL", origURL.String())
+					req.URL = origURL
+				}
+
+				//Set host
+				req.URL.Host = updateHost[0]
+
+				//set scheme
+				req.URL.Scheme = "https"
+
+				log.Debug("Handler_success - request scheme", req.URL.Scheme)
+				log.Debug("Handler_success - request Host ", req.URL.Host)
+				log.Debug("Handler_success - request URL ", req.URL)
+			}
+
+			proxy := &httputil.ReverseProxy{Director: director}
+			proxy.Transport = defaultProxyTransport(30)
+
+			log.Debug("Start update_host_header proxy")
+			proxy.ServeHTTP(w, r)
+			log.Debug("Done update_host_header proxy")
+			return nil
+		} else {
+			log.Debug("update_host_header header not found")
+		}
+	}
+
 	versionDef := s.Spec.VersionDefinition
 	if !s.Spec.VersionData.NotVersioned && versionDef.Location == "url" && versionDef.StripPath {
 		part := s.Spec.getVersionFromRequest(r)
@@ -339,6 +384,33 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 	}
 	log.Debug("Done proxy")
 	return nil
+}
+
+func defaultProxyTransport(dialerTimeout float64) http.RoundTripper {
+	timeout := 30.0
+	if dialerTimeout > 0 {
+		log.Debug("Setting timeout for outbound request to: ", dialerTimeout)
+		timeout = dialerTimeout
+	}
+
+	dialer := &net.Dialer{
+		Timeout:   time.Duration(float64(timeout) * float64(time.Second)),
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
+	dialContextFunc := dialer.DialContext
+	if dnsCacheManager.IsCacheEnabled() {
+		dialContextFunc = dnsCacheManager.WrapDialer(dialer)
+	}
+
+	return &http.Transport{
+		DialContext:           dialContextFunc,
+		MaxIdleConns:          config.Global().MaxIdleConns,
+		MaxIdleConnsPerHost:   config.Global().MaxIdleConnsPerHost, // default is 100
+		ResponseHeaderTimeout: time.Duration(dialerTimeout) * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+	}
 }
 
 // ServeHTTPWithCache will store the request details in the analytics store if necessary and proxy the request to it's
