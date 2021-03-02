@@ -851,13 +851,14 @@ func addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 	log.Debug(fmt.Sprintf("JWT Public Key %s", jwtPublicKey))
 	count := 0
 	for {
-		time.Sleep(1 * time.Second)
+
 		ret := processJWTApiKey(tykConf, JWTAPIMap, jwtPublicKey, jwtDef.JWTAPIKey, "localhost", ADD)
 		count++
 		if ret == true {
 			break
 		} else if count < 3 {
 			log.Warn("Could not verify JWT API Token.. retry")
+			time.Sleep(1 * time.Second)
 		} else {
 			log.Error("Could not add JWT token", jwtDef.JWTAPIKey)
 			break
@@ -962,13 +963,13 @@ func addOrDeleteJWTKey(e Event, appName string) error {
 			}
 			count := 0
 			for {
-				time.Sleep(1 * time.Second)
 				ret := processJWTApiKey(tykConf, JWTAPIMap, jwtKey, jwtDef.JWTAPIKey, "localhost", e)
 				count++
 				if ret == true {
 					break
 				} else if count < 3 {
 					log.Warn("Could not verify JWT API Token.. retry")
+					time.Sleep(1 * time.Second)
 				} else {
 					log.Error("Could not add JWT token", jwtDef.JWTAPIKey)
 					break
