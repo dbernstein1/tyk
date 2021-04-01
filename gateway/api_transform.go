@@ -102,6 +102,7 @@ type GolangMiddlewareConfigData struct {
 type APIDefinition struct {
 	Name                       string                     `json:"name"`
 	ListenPath                 string                     `json:"listen_path"`
+	Roles                      []string                   `json:"roles"`
 	TargetURL                  string                     `json:"target_url"`
 	AuthType                   string                     `json:"authtype"`
 	EnablePythonMiddleware     bool                       `json:"enable_python_middleware"`
