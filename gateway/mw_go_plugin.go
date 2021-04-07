@@ -137,6 +137,7 @@ func (m *GoPluginMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Reque
 	t1 := time.Now()
 
 	// Inject definition into request context:
+	m.logger.Debug(fmt.Sprintf("Go-plugin - injecting ApiDef Spec: %v", m.Spec.APIDefinition))
 	ctx.SetDefinition(r, m.Spec.APIDefinition)
 
 	m.handler(rw, r)
