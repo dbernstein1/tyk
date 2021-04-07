@@ -318,7 +318,12 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 		if ok {
 			//Create Reverse proxy
 			director := func(req *http.Request) {
+				//Delete UpdateHostHeader
 				req.Header.Del(header)
+
+				//Add NDProxyHost header
+				proxyHeader := textproto.CanonicalMIMEHeaderKey(s.Spec.Proxy.NDProxyHeader)
+				req.Header.Set(proxyHeader, "1")
 
 				//Reset the rawquery assuming URLRewrite may have reset the path
 				if origURL := ctxGetOrigRequestURL(req); origURL != nil {
