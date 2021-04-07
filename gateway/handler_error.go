@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/textproto"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -136,8 +137,15 @@ func (e *ErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, errMs
 
 		}
 
-		//If the config option is not set or is false, add the header
-		if !e.Spec.GlobalConfig.HideGeneratorHeader {
+		//disable tyk.io header for request with proxy header
+		//Normalize header
+		log.Debug("Handler_error - Detected UpdateHostHeader ", e.BaseMiddleware.Spec.Proxy.UpdateHostHeader)
+		header := textproto.CanonicalMIMEHeaderKey(e.BaseMiddleware.Spec.Proxy.UpdateHostHeader)
+		log.Debug("Handler_error - CanonicalMIMEHeaderKey form ", e.BaseMiddleware.Spec.Proxy.UpdateHostHeader)
+		updateHost, ok := r.Header[header]
+		if ok {
+			log.Debug("Handler_error -  do not inject tyk.io header for proxy request - proxy header found ", updateHost)
+		} else if !e.Spec.GlobalConfig.HideGeneratorHeader {
 			w.Header().Add(headers.XGenerator, "tyk.io")
 			response.Header.Add(headers.XGenerator, "tyk.io")
 		}
