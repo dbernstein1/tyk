@@ -510,8 +510,12 @@ type RequestSigningMeta struct {
 type ProxyConfig struct {
 	PreserveHostHeader bool `bson:"preserve_host_header" json:"preserve_host_header"`
 	//Cisco - enable host re-write from header
-	UpdateHostHeader            string                        `bson:"update_host_header" json:"update_host_header"`
-	ListenPath                  string                        `bson:"listen_path" json:"listen_path"`
+	UpdateHostHeader string `bson:"update_host_header" json:"update_host_header"`
+	//inject this header for all proxied request
+	NDProxyRequest string `bson:"nd_proxy_request" json:"nd_proxy_request"`
+	ListenPath     string `bson:"listen_path" json:"listen_path"`
+	//Cisco custom RBAC Role
+	Roles                       []string                      `bson:"roles" json:"roles"`
 	TargetURL                   string                        `bson:"target_url" json:"target_url"`
 	DisableStripSlash           bool                          `bson:"disable_strip_slash" json:"disable_strip_slash"`
 	StripListenPath             bool                          `bson:"strip_listen_path" json:"strip_listen_path"`

@@ -102,6 +102,7 @@ type GolangMiddlewareConfigData struct {
 type APIDefinition struct {
 	Name                       string                     `json:"name"`
 	ListenPath                 string                     `json:"listen_path"`
+	Roles                      []string                   `json:"roles"`
 	TargetURL                  string                     `json:"target_url"`
 	AuthType                   string                     `json:"authtype"`
 	EnablePythonMiddleware     bool                       `json:"enable_python_middleware"`
@@ -597,6 +598,8 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 			temp["proxy"].(map[string]interface{})["target_url"] = api.TargetURL
 
 			temp["proxy"].(map[string]interface{})["listen_path"] = api.ListenPath
+			temp["proxy"].(map[string]interface{})["roles"] = api.Roles
+
 			if len(api.URLRewrites) > 0 {
 				temp["version_data"].(map[string]interface {
 				})["versions"].(map[string]interface {
