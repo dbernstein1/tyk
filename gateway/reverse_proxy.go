@@ -1223,7 +1223,7 @@ func upgradeType(h http.Header) string {
 }
 
 func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.Request, res *http.Response) error {
-	copyHeader(res.Header, rw.Header())
+	//copyHeader(res.Header, rw.Header())
 
 	hj, ok := rw.(http.Hijacker)
 	if !ok {
@@ -1250,6 +1250,11 @@ func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.R
 		return fmt.Errorf("Hijack failed on protocol switch: %v", err)
 	}
 	defer conn.Close()
+
+	copyHeader(rw.Header(), res.Header)
+
+	res.Header = rw.Header()
+
 	res.Body = nil // so res.Write only writes the headers; we have res.Body in backConn above
 	if err := res.Write(brw); err != nil {
 		return fmt.Errorf("response write: %v", err)
