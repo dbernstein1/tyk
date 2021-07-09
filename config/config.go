@@ -488,6 +488,9 @@ type Config struct {
 	//Cisco - Enable generic endpoint analytics for all HTTP verb for all requests
 	EnableGenericEndpointAnalytics bool `json:"enable_generic_endpoint_analytics"`
 
+	//Cisco - Skip JWT enforcement for all request with proxy header for federation
+	DisableProxyJWT bool `json:"disable_proxy_jwt"`
+
 	KV struct {
 		Consul ConsulConfig `json:"consul"`
 		Vault  VaultConfig  `json:"vault"`

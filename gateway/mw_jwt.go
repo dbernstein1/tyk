@@ -17,6 +17,7 @@ import (
 	cache "github.com/pmylund/go-cache"
 
 	"github.com/TykTechnologies/tyk/apidef"
+	"github.com/TykTechnologies/tyk/config"
 	"github.com/TykTechnologies/tyk/user"
 )
 
@@ -542,6 +543,28 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 	}
 
 	logger := k.Logger()
+	if config.Global().DisableProxyJWT {
+		//Skip JWT enforcement for Proxy request if it has a UpdateHostHeader and NDProxyRequest is not set
+		//This will enable proxy initator to skip JWT validation. Target host to still enforce JWT
+
+		updateHostHeader := textproto.CanonicalMIMEHeaderKey(k.BaseMiddleware.Spec.Proxy.UpdateHostHeader)
+		updateHostHeaderVal, ok := r.Header[updateHostHeader]
+		if ok {
+			log.Debug("JWT Middleware - updateHostHeader found", updateHostHeaderVal[0])
+			//Skip JWT enforcement if NDProxyRequest is not set (it is an initiator)
+			NDProxyHeader := textproto.CanonicalMIMEHeaderKey(k.BaseMiddleware.Spec.Proxy.NDProxyRequest)
+			NDProxyHeaderVal, ok := r.Header[NDProxyHeader]
+			if !ok {
+				log.Debug("JWT Middleware - one-hop proxy request header not found. Skip JWT enforcement.")
+				//Set it to OK for next middlewares to skip all checks
+				ctxSetRequestStatus(r, StatusOkAndIgnore)
+				return nil, http.StatusOK
+			} else {
+				log.Debug("JWT Middleware - one-hop proxy request header found. Enforce JWT", NDProxyHeaderVal[0])
+			}
+		}
+	}
+
 	var tykId string
 
 	//Added default JWT lookup
