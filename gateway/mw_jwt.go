@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"time"
 
@@ -611,6 +612,17 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 			return errors.New("Key not authorized: " + jwtErr.Error()), http.StatusUnauthorized
 		}
 
+		//Cisco change - do not proxy local user request
+		//Check if update host header is set
+		header := textproto.CanonicalMIMEHeaderKey(k.Spec.Proxy.UpdateHostHeader)
+		logger.Debug("proxy reauest with localuser ", header, "header")
+		ok := r.Header.Get(header)
+		if ok != "" {
+			if err := k.validateLocaluserProxyRequest(token.Claims.(jwt.MapClaims)); err != nil {
+				return errors.New(err.Error()), http.StatusUnauthorized
+			}
+		}
+
 		// Token is valid - let's move on
 
 		// Are we mapping to a central JWT Secret?
@@ -679,6 +691,18 @@ func (k *JWTMiddleware) timeValidateJWTClaims(c jwt.MapClaims) *jwt.ValidationEr
 	}
 
 	return vErr
+}
+
+func (k *JWTMiddleware) validateLocaluserProxyRequest(c jwt.MapClaims) error {
+	var err error
+	logger := k.Logger()
+	logger.Info("Found %s header", k.Spec.Proxy.NDProxyRequest)
+	usertype, ok := c["usertype"]
+	if ok && usertype == "local" {
+		err = errors.New("could not proxy localuser request")
+	}
+
+	return err
 }
 
 func ctxSetJWTContextVars(s *APISpec, r *http.Request, token *jwt.Token) {
