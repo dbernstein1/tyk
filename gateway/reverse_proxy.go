@@ -530,6 +530,21 @@ func (p *ReverseProxy) CheckHardTimeoutEnforced(spec *APISpec, req *http.Request
 	return false, spec.GlobalConfig.ProxyDefaultTimeout
 }
 
+//Cisco change
+func (p *ReverseProxy) GetTimeoutFromProxyHeader(spec *APISpec, req *http.Request, inTimeout float64) float64 {
+	proxyTimeoutHeaderName := textproto.CanonicalMIMEHeaderKey(spec.Proxy.NDProxyTimeoutHeader)
+	proxyTimeout, ok := req.Header[proxyTimeoutHeaderName]
+	if ok {
+		timeout, err := strconv.ParseInt(proxyTimeout[0], 10, 32)
+		if err == nil {
+			log.Debug("setting proxy timeout value from header")
+			return float64(timeout)
+		}
+	}
+
+	return inTimeout
+}
+
 func (p *ReverseProxy) CheckHeaderInRemoveList(hdr string, spec *APISpec, req *http.Request) bool {
 	vInfo, versionPaths, _, _ := spec.Version(req)
 	for _, gdKey := range vInfo.GlobalHeadersRemove {
@@ -836,6 +851,32 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		req = req.WithContext(ctx)
 	}
 	var roundTripper *TykRoundTripper
+
+	p.TykAPISpec.Lock()
+
+	// create HTTP transport
+	createTransport := p.TykAPISpec.HTTPTransport == nil
+
+	// Check if timeouts are set for this endpoint
+	if !createTransport && config.Global().MaxConnTime != 0 {
+		createTransport = time.Since(p.TykAPISpec.HTTPTransportCreated) > time.Duration(config.Global().MaxConnTime)*time.Second
+	}
+
+	if createTransport {
+		_, timeout := p.CheckHardTimeoutEnforced(p.TykAPISpec, req)
+		//Cisco change
+		//override the connect timeout value if X-Nd-Proxy-Timeout header is set
+		timeout = p.GetTimeoutFromProxyHeader(p.TykAPISpec, req, timeout)
+
+		p.TykAPISpec.HTTPTransport = httpTransport(timeout, rw, req, p)
+		p.TykAPISpec.HTTPTransportCreated = time.Now()
+
+		p.logger.Debug("Creating new transport")
+	}
+
+	roundTripper = p.TykAPISpec.HTTPTransport
+
+	p.TykAPISpec.Unlock()
 
 	reqCtx := req.Context()
 	if cn, ok := rw.(http.CloseNotifier); ok {
