@@ -513,7 +513,9 @@ type ProxyConfig struct {
 	UpdateHostHeader string `bson:"update_host_header" json:"update_host_header"`
 	//inject this header for all proxied request
 	NDProxyRequest string `bson:"nd_proxy_request" json:"nd_proxy_request"`
-	ListenPath     string `bson:"listen_path" json:"listen_path"`
+	//Cisco - read proxy timeout value from header
+	NDProxyTimeoutHeader string `bson:"nd_proxy_timeout_header" json:"nd_proxy_timeout_header"`
+	ListenPath           string `bson:"listen_path" json:"listen_path"`
 	//Cisco custom RBAC Role
 	Roles                       []string                      `bson:"roles" json:"roles"`
 	TargetURL                   string                        `bson:"target_url" json:"target_url"`

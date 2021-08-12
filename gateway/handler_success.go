@@ -343,8 +343,23 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 			}
 
 			proxy := &httputil.ReverseProxy{Director: director}
-			proxy.Transport = defaultProxyTransport(30)
 
+			//Get timeout value from X-Nd-Proxy-Timeout
+			proxyTimeoutHeaderName := textproto.CanonicalMIMEHeaderKey(s.Spec.Proxy.NDProxyTimeoutHeader)
+			proxyTimeout, ok := r.Header[proxyTimeoutHeaderName]
+			if ok {
+				timeout, err := strconv.ParseInt(proxyTimeout[0], 10, 32)
+				if err != nil {
+					log.Debug("setting default proxy timeout value")
+					//Set proxy connect timeout to default 30 seconds
+					timeout = 30
+				}
+				log.Debug("setting proxy timeout value to ", timeout, " seconds")
+				proxy.Transport = defaultProxyTransport(float64(timeout))
+			} else {
+				log.Debug("setting proxy timeout value to 30 seconds")
+				proxy.Transport = defaultProxyTransport(30)
+			}
 			log.Debug("Start update_host_header proxy")
 			proxy.ServeHTTP(w, r)
 			log.Debug("Done update_host_header proxy")
