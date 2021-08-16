@@ -619,6 +619,9 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 		ok := r.Header.Get(header)
 		if ok != "" {
 			if err := k.validateLocaluserProxyRequest(token.Claims.(jwt.MapClaims)); err != nil {
+				//Add NDProxyRequest header to request to skip tyk.io header injection for error response
+				header := textproto.CanonicalMIMEHeaderKey(k.BaseMiddleware.Spec.Proxy.NDProxyRequest)
+				r.Header.Set(header, "localhost")
 				return errors.New(err.Error()), http.StatusUnauthorized
 			}
 		}
