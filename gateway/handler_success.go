@@ -426,7 +426,7 @@ func (s *SuccessHandler) defaultProxyTransport(dialerTimeout float64) http.Round
 		DialContext:           dialContextFunc,
 		MaxIdleConns:          s.Spec.GlobalConfig.MaxIdleConns,
 		MaxIdleConnsPerHost:   s.Spec.GlobalConfig.MaxIdleConnsPerHost, // default is 100
-		ResponseHeaderTimeout: time.Duration(dialerTimeout) * time.Second,
+		ResponseHeaderTimeout: time.Duration(30) * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
