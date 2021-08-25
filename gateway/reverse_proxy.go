@@ -397,7 +397,7 @@ func defaultTransport(dialerTimeout float64) *http.Transport {
 		DialContext:           dialContextFunc,
 		MaxIdleConns:          config.Global().MaxIdleConns,
 		MaxIdleConnsPerHost:   config.Global().MaxIdleConnsPerHost, // default is 100
-		ResponseHeaderTimeout: time.Duration(dialerTimeout) * time.Second,
+		ResponseHeaderTimeout: time.Duration(30) * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 	}
 }
