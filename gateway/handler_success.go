@@ -406,6 +406,7 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 }
 
 func (s *SuccessHandler) defaultProxyTransport(dialerTimeout float64) http.RoundTripper {
+	log.Debug("defaultProxyTransport dialerTimeout: ", dialerTimeout)
 	timeout := 30.0
 	if dialerTimeout > 0 {
 		log.Debug("Setting timeout for outbound request to: ", dialerTimeout)
@@ -426,7 +427,7 @@ func (s *SuccessHandler) defaultProxyTransport(dialerTimeout float64) http.Round
 		DialContext:           dialContextFunc,
 		MaxIdleConns:          s.Spec.GlobalConfig.MaxIdleConns,
 		MaxIdleConnsPerHost:   s.Spec.GlobalConfig.MaxIdleConnsPerHost, // default is 100
-		ResponseHeaderTimeout: time.Duration(30) * time.Second,
+		ResponseHeaderTimeout: time.Duration(0) * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}

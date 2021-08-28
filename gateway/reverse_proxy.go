@@ -393,6 +393,7 @@ type ReverseProxy struct {
 }
 
 func (p *ReverseProxy) defaultTransport(dialerTimeout float64) *http.Transport {
+	log.Debug("defaultTransport dialerTimeout: ", dialerTimeout)
 	timeout := 30.0
 	if dialerTimeout > 0 {
 		log.Debug("Setting timeout for outbound request to: ", dialerTimeout)
@@ -417,7 +418,7 @@ func (p *ReverseProxy) defaultTransport(dialerTimeout float64) *http.Transport {
 		DialContext:           dialContextFunc,
 		MaxIdleConns:          p.Gw.GetConfig().MaxIdleConns,
 		MaxIdleConnsPerHost:   p.Gw.GetConfig().MaxIdleConnsPerHost, // default is 100
-		ResponseHeaderTimeout: time.Duration(30) * time.Second,
+		ResponseHeaderTimeout: time.Duration(0) * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 	}
 
