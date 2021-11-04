@@ -526,6 +526,12 @@ type ProxyConfig struct {
 	NDProxyRequest string `bson:"nd_proxy_request" json:"nd_proxy_request"`
 	//Cisco - read proxy timeout value from header
 	NDProxyTimeoutHeader string `bson:"nd_proxy_timeout_header" json:"nd_proxy_timeout_header"`
+	//Cisco - API Key Header
+	NDAPIKeyHeader string `bson:"nd_apikey_header" json:"nd_apikey_header"`
+	//Cisco - API Key Username header
+	NDAPIKeyUsernameHeader string `bson:"nd_apikey_username_header" json:"nd_apikey_username_header"`
+	//Cisco - API Key Secret header
+	NDAPIKeySecretHeader string `bson:"nd_apikey_secret_header" json:"nd_apikey_secret_header"`
 	ListenPath           string `bson:"listen_path" json:"listen_path"`
 	//Cisco custom RBAC Role
 	Roles                       []string                      `bson:"roles" json:"roles"`

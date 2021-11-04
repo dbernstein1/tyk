@@ -3,6 +3,7 @@ package gateway
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/textproto"
+	"os"
 	"strings"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	jose "github.com/square/go-jose"
 
 	"github.com/TykTechnologies/tyk/apidef"
+	"github.com/TykTechnologies/tyk/config"
 	"github.com/TykTechnologies/tyk/user"
 )
 
@@ -605,6 +608,20 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 
 	//Added default JWT lookup
 	rawJWT, config := k.getAuthToken(k.getAuthType(), r)
+	if rawJWT == "" {
+		//Check is its API key request
+		rawJWT = k.getJWTFromAPIKey(r)
+		//set rawJWT as Authorization header and also as AuthCookie
+		if rawJWT != "" {
+			r.Header.Set("Authorization", rawJWT)
+			cookie := http.Cookie{
+				Name:   "AuthCookie",
+				Value:  rawJWT,
+				MaxAge: 300,
+			}
+			r.AddCookie(&cookie)
+		}
+	}
 
 	if rawJWT == "" {
 		// No header value, fail
@@ -711,6 +728,85 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 		return errors.New("Key not authorized:" + err.Error()), http.StatusUnauthorized
 	}
 	return errors.New("Key not authorized"), http.StatusUnauthorized
+}
+
+type TokenResponse struct {
+	JWTToken string `json:"jwttoken,omitempty"`
+}
+
+func (k *JWTMiddleware) getJWTFromAPIKey(r *http.Request) string {
+	//check if x-nd-apikey and x-nd-username is set
+	var apikey, username, secret string
+	var httpReq *http.Request
+	var tokenResp TokenResponse
+
+	tokenEndpoint, ok := os.LookupEnv("APIKEY_TOKEN_ENDPOINT")
+	if !ok {
+		tokenEndpoint = "https://127.0.0.1/token"
+	}
+
+	logger := k.Logger()
+
+	apikeys, ok := r.Header[k.Spec.Proxy.NDAPIKeyHeader]
+	if ok {
+		apikey = apikeys[0]
+	}
+
+	usernames, ok := r.Header[k.Spec.Proxy.NDAPIKeyUsernameHeader]
+	if ok {
+		username = usernames[0]
+	}
+
+	secret = config.Global().Secret
+
+	if apikey == "" || username == "" || secret == "" {
+		//Return empty token for tyk to reject the request
+		logger.Error("apikey - invalid param")
+		return ""
+	}
+
+	//Make HTTP call to /token endpoint to get the user token
+	timeout := 10 * time.Second
+	httpReq, err := http.NewRequest("GET", tokenEndpoint, nil)
+	if err != nil {
+		return ""
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set(k.Spec.Proxy.NDAPIKeyUsernameHeader, username)
+	httpReq.Header.Set(k.Spec.Proxy.NDAPIKeyHeader, apikey)
+	httpReq.Header.Set(k.Spec.Proxy.NDAPIKeySecretHeader, secret)
+
+	tr := &http.Transport{
+		DisableKeepAlives: true,
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{Timeout: timeout, Transport: tr}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		logger.WithError(err).Error("could not create transport")
+		return ""
+	}
+
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logger.WithError(err).Error("could not read response body")
+		return ""
+	}
+
+	err = json.Unmarshal(b, &tokenResp)
+
+	if err != nil {
+		logger.WithError(err).Error("could not unmarshal response body")
+		return ""
+	}
+
+	return tokenResp.JWTToken
 }
 
 func ParseRSAPublicKey(data []byte) (interface{}, error) {
