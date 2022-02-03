@@ -714,6 +714,9 @@ type AuthConfig struct {
 	UseCookie         bool            `mapstructure:"use_cookie" bson:"use_cookie" json:"use_cookie"`
 	CookieName        string          `mapstructure:"cookie_name" bson:"cookie_name" json:"cookie_name"`
 	DisableHeader     bool            `mapstructure:"disable_header" bson:"disable_header" json:"disable_header"`
+	//Cisco Change - added CSRF support
+	CSRFHeaderName    string          `mapstructure:"csrf_header_name" bson:"csrf_header_name" json:"csrf_header_name"`
+	UseCSRFHeader     bool            `mapstructure:"use_csrf_header" bson:"use_csrf_header" json:"use_csrf_header"`
 	AuthHeaderName    string          `mapstructure:"auth_header_name" bson:"auth_header_name" json:"auth_header_name"`
 	UseCertificate    bool            `mapstructure:"use_certificate" bson:"use_certificate" json:"use_certificate"`
 	ValidateSignature bool            `mapstructure:"validate_signature" bson:"validate_signature" json:"validate_signature"`
