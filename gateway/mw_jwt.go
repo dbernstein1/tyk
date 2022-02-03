@@ -726,6 +726,28 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 			return errors.New("Key not authorized: " + jwtErr.Error()), http.StatusUnauthorized
 		}
 
+		//Enforce CSRF Check only if ui-login claim is set
+		uiClaim, found := token.Claims.(jwt.MapClaims)["ui-login"]
+		if found {
+			isUILogin := uiClaim.(bool)
+			if k.Spec.Auth.UseCSRFHeader && isUILogin {
+				csrfHeader := textproto.CanonicalMIMEHeaderKey(k.Spec.Auth.CSRFHeaderName)
+				logger.Debug("proxy reauest with csrfHeader ", csrfHeader, "header")
+				csrfToken := r.Header.Get(csrfHeader)
+				if csrfToken != "" {
+					if err := k.validateCSRFHeader(token.Claims.(jwt.MapClaims), csrfToken); err != nil {
+						//Add NDProxyRequest header to request to skip tyk.io header injection for error response
+						header := textproto.CanonicalMIMEHeaderKey(k.BaseMiddleware.Spec.Proxy.NDProxyRequest)
+						r.Header.Set(header, "localhost")
+						return errors.New(err.Error()), http.StatusUnauthorized
+					}
+				} else {
+					//Error - could not find CSRF Header
+					return errors.New("missing csrf token"), http.StatusUnauthorized
+				}
+			}
+		}
+
 		//Cisco change - do not proxy local user request
 		//Check if update host header is set
 		header := textproto.CanonicalMIMEHeaderKey(k.Spec.Proxy.UpdateHostHeader)
@@ -881,6 +903,17 @@ func (k *JWTMiddleware) validateLocaluserProxyRequest(c jwt.MapClaims) error {
 	}
 
 	return err
+}
+
+func (k *JWTMiddleware) validateCSRFHeader(c jwt.MapClaims, csrfToken string) error {
+	logger := k.Logger()
+	logger.Info("Found %s header", k.Spec.Auth.CSRFHeaderName)
+	csrfCookie, ok := c["csrf-token"]
+	if !ok || csrfCookie != csrfToken {
+		return errors.New("could not find csrf token in cookie")
+	}
+
+	return nil
 }
 
 func ctxSetJWTContextVars(s *APISpec, r *http.Request, token *jwt.Token) {
