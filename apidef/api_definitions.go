@@ -475,10 +475,13 @@ type APIDefinition struct {
 }
 
 type AuthConfig struct {
-	UseParam          bool            `mapstructure:"use_param" bson:"use_param" json:"use_param"`
-	ParamName         string          `mapstructure:"param_name" bson:"param_name" json:"param_name"`
-	UseCookie         bool            `mapstructure:"use_cookie" bson:"use_cookie" json:"use_cookie"`
-	CookieName        string          `mapstructure:"cookie_name" bson:"cookie_name" json:"cookie_name"`
+	UseParam   bool   `mapstructure:"use_param" bson:"use_param" json:"use_param"`
+	ParamName  string `mapstructure:"param_name" bson:"param_name" json:"param_name"`
+	UseCookie  bool   `mapstructure:"use_cookie" bson:"use_cookie" json:"use_cookie"`
+	CookieName string `mapstructure:"cookie_name" bson:"cookie_name" json:"cookie_name"`
+	//Cisco Change - added CSRF support
+	CSRFHeaderName    string          `mapstructure:"csrf_header_name" bson:"csrf_header_name" json:"csrf_header_name"`
+	UseCSRFHeader     bool            `mapstructure:"use_csrf_header" bson:"use_csrf_header" json:"use_csrf_header"`
 	AuthHeaderName    string          `mapstructure:"auth_header_name" bson:"auth_header_name" json:"auth_header_name"`
 	UseCertificate    bool            `mapstructure:"use_certificate" bson:"use_certificate" json:"use_certificate"`
 	ValidateSignature bool            `mapstructure:"validate_signature" bson:"validate_signature" json:"validate_signature"`
