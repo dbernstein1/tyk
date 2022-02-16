@@ -108,6 +108,7 @@ type APIDefinition struct {
 	EnablePythonMiddleware     bool                       `json:"enable_python_middleware"`
 	EnableGolangMiddleware     bool                       `json:"enable_golang_middleware"`
 	EnableMTLS                 bool                       `json:"enable_mtls"`
+	EnableCSRF                 bool                       `json:"use_csrf_header"`
 	UpdateTargetHost           bool                       `json:"update_target_host"`
 	PythonMiddlewareConfigData PythonMiddlewareConfigData `json:"python_middleware_config_data"`
 	GolangMiddlewareConfigData GolangMiddlewareConfigData `json:"golang_middleware_config_data"`
@@ -736,6 +737,9 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 				certs["*"] = TykUpstreamPem
 				temp["upstream_certificates"] = certs
 			}
+
+			//Set CSRF Field
+			temp["auth"].(map[string]interface{})["use_csrf_header"] = api.EnableCSRF
 
 			if api.EnableLoadBalancing {
 				temp["uptime_tests"] = api.LoadBalancingConfigData
