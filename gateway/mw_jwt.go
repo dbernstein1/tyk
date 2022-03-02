@@ -229,7 +229,14 @@ func (k *JWTMiddleware) getSecretToVerifySignature(r *http.Request, token *jwt.T
 	session, rawKeyExists := k.CheckSessionAndIdentityForValidKey(tykId, r)
 	tykId = session.KeyID
 	if !rawKeyExists {
-		return nil, errors.New("token invalid, key not found")
+		//Cisco change to try search "sitekey-<kid>"
+		sitekey := "sitekey-" + tykId
+		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(&sitekey, r)
+		if !siteKeyExists {
+			return nil, errors.New("token invalid, key not found")
+		} else {
+			return []byte(session.JWTData.Secret), nil
+		}
 	}
 	return []byte(session.JWTData.Secret), nil
 }
@@ -636,8 +643,19 @@ func (k *JWTMiddleware) processOneToOneTokenMap(r *http.Request, token *jwt.Toke
 	tykId = session.KeyID
 
 	if !exists {
-		k.reportLoginFailure(tykId, r)
-		return errors.New("Key not authorized"), http.StatusForbidden
+		//Cisco change to try search "sitekey-<kid>"
+		sitekey := "sitekey-" + tykId
+		k.Logger().Debug("Using sitekey ID: ", sitekey)
+		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(&sitekey, r)
+		if !siteKeyExists {
+			k.reportLoginFailure(tykId, r)
+			return errors.New("Key not authorized"), http.StatusForbidden
+		} else {
+			k.Logger().Debug("sitekey ID found.")
+			ctxSetSession(r, &session, sitekey, false)
+			ctxSetJWTContextVars(k.Spec, r, token)
+			return nil, http.StatusOK
+		}
 	}
 
 	k.Logger().Debug("Raw key ID found.")
