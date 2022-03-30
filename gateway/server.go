@@ -946,7 +946,7 @@ func initialiseSystem(ctx context.Context) error {
 		mainLog.Debug("No configuration file defined, will try to use default (tyk.conf)")
 	}
 
-	mainLog.Infof("Tyk API Gateway %s", VERSION)
+	mainLog.Infof("Tyk API Gateway %s NEXUS DASHBOARD!!!!", VERSION)
 
 	if !isRunningTests() {
 		globalConf := config.Config{}
