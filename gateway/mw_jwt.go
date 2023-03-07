@@ -11,7 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/textproto"
+	"os"
 	"strings"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 	"github.com/TykTechnologies/tyk/apidef"
 	"github.com/TykTechnologies/tyk/storage"
 
+	"github.com/TykTechnologies/tyk/config"
 	"github.com/TykTechnologies/tyk/user"
 )
 
@@ -237,7 +241,14 @@ func (k *JWTMiddleware) getSecretToVerifySignature(r *http.Request, token *jwt.T
 	session, rawKeyExists := k.CheckSessionAndIdentityForValidKey(tykId, r)
 	tykId = session.KeyID
 	if !rawKeyExists {
-		return nil, errors.New("token invalid, key not found")
+		//Cisco change to try search "sitekey-<kid>"
+		sitekey := "sitekey-" + tykId
+		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(&sitekey, r)
+		if !siteKeyExists {
+			return nil, errors.New("token invalid, key not found")
+		} else {
+			return []byte(session.JWTData.Secret), nil
+		}
 	}
 	return []byte(session.JWTData.Secret), nil
 }
@@ -644,8 +655,19 @@ func (k *JWTMiddleware) processOneToOneTokenMap(r *http.Request, token *jwt.Toke
 	tykId = session.KeyID
 
 	if !exists {
-		k.reportLoginFailure(tykId, r)
-		return errors.New("Key not authorized"), http.StatusForbidden
+		//Cisco change to try search "sitekey-<kid>"
+		sitekey := "sitekey-" + tykId
+		k.Logger().Debug("Using sitekey ID: ", sitekey)
+		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(&sitekey, r)
+		if !siteKeyExists {
+			k.reportLoginFailure(tykId, r)
+			return errors.New("Key not authorized"), http.StatusForbidden
+		} else {
+			k.Logger().Debug("sitekey ID found.")
+			ctxSetSession(r, &session, sitekey, false)
+			ctxSetJWTContextVars(k.Spec, r, token)
+			return nil, http.StatusOK
+		}
 	}
 
 	k.Logger().Debug("Raw key ID found.")
@@ -667,7 +689,22 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 	logger := k.Logger()
 	var tykId string
 
+	//Added default JWT lookup
 	rawJWT, config := k.getAuthToken(k.getAuthType(), r)
+	if rawJWT == "" {
+		//Check is its API key request
+		rawJWT = k.getJWTFromAPIKey(r)
+		//set rawJWT as Authorization header and also as AuthCookie
+		if rawJWT != "" {
+			r.Header.Set("Authorization", rawJWT)
+			cookie := http.Cookie{
+				Name:   "AuthCookie",
+				Value:  rawJWT,
+				MaxAge: 300,
+			}
+			r.AddCookie(&cookie)
+		}
+	}
 
 	if rawJWT == "" {
 		// No header value, fail
@@ -678,7 +715,7 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 		log.Debug("Headers are: ", r.Header)
 
 		k.reportLoginFailure(tykId, r)
-		return errors.New("Authorization field missing"), http.StatusBadRequest
+		return errors.New("Authorization field missing"), http.StatusUnauthorized
 	}
 
 	// enable bearer token format
@@ -708,6 +745,42 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 			return errors.New("Key not authorized: " + jwtErr.Error()), http.StatusUnauthorized
 		}
 
+		//Enforce CSRF Check only if ui-login claim is set
+		uiClaim, found := token.Claims.(jwt.MapClaims)["ui-login"]
+		if found {
+			isUILogin := uiClaim.(bool)
+			if k.Spec.Auth.UseCSRFHeader && isUILogin {
+				csrfHeader := textproto.CanonicalMIMEHeaderKey(k.Spec.Auth.CSRFHeaderName)
+				logger.Debug("proxy reauest with csrfHeader ", csrfHeader, "header")
+				csrfToken := r.Header.Get(csrfHeader)
+				if csrfToken != "" {
+					if err := k.validateCSRFHeader(token.Claims.(jwt.MapClaims), csrfToken); err != nil {
+						//Add NDProxyRequest header to request to skip tyk.io header injection for error response
+						header := textproto.CanonicalMIMEHeaderKey(k.BaseMiddleware.Spec.Proxy.NDProxyRequest)
+						r.Header.Set(header, "localhost")
+						return errors.New(err.Error()), http.StatusUnauthorized
+					}
+				} else {
+					//Error - could not find CSRF Header
+					return errors.New("missing csrf token"), http.StatusUnauthorized
+				}
+			}
+		}
+
+		//Cisco change - do not proxy local user request
+		//Check if update host header is set
+		header := textproto.CanonicalMIMEHeaderKey(k.Spec.Proxy.UpdateHostHeader)
+		logger.Debug("proxy reauest with localuser ", header, "header")
+		ok := r.Header.Get(header)
+		if ok != "" {
+			if err := k.validateLocaluserProxyRequest(token.Claims.(jwt.MapClaims)); err != nil {
+				//Add NDProxyRequest header to request to skip tyk.io header injection for error response
+				header := textproto.CanonicalMIMEHeaderKey(k.BaseMiddleware.Spec.Proxy.NDProxyRequest)
+				r.Header.Set(header, "localhost")
+				return errors.New(err.Error()), http.StatusUnauthorized
+			}
+		}
+
 		// Token is valid - let's move on
 
 		// Are we mapping to a central JWT Secret?
@@ -728,7 +801,86 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 			return errors.New(MsgKeyNotAuthorizedUnexpectedSigningMethod), http.StatusForbidden
 		}
 	}
-	return errors.New("Key not authorized"), http.StatusForbidden
+	return errors.New("Key not authorized"), http.StatusUnauthorized
+}
+
+type TokenResponse struct {
+	JWTToken string `json:"jwttoken,omitempty"`
+}
+
+func (k *JWTMiddleware) getJWTFromAPIKey(r *http.Request) string {
+	//check if x-nd-apikey and x-nd-username is set
+	var apikey, username, secret string
+	var httpReq *http.Request
+	var tokenResp TokenResponse
+
+	tokenEndpoint, ok := os.LookupEnv("APIKEY_TOKEN_ENDPOINT")
+	if !ok {
+		tokenEndpoint = "https://127.0.0.1/token"
+	}
+
+	logger := k.Logger()
+
+	apikeys, ok := r.Header[k.Spec.Proxy.NDAPIKeyHeader]
+	if ok {
+		apikey = apikeys[0]
+	}
+
+	usernames, ok := r.Header[k.Spec.Proxy.NDAPIKeyUsernameHeader]
+	if ok {
+		username = usernames[0]
+	}
+
+	secret = config.Global().Secret
+
+	if apikey == "" || username == "" || secret == "" {
+		//Return empty token for tyk to reject the request
+		logger.Error("apikey - invalid param")
+		return ""
+	}
+
+	//Make HTTP call to /token endpoint to get the user token
+	timeout := 10 * time.Second
+	httpReq, err := http.NewRequest("GET", tokenEndpoint, nil)
+	if err != nil {
+		return ""
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set(k.Spec.Proxy.NDAPIKeyUsernameHeader, username)
+	httpReq.Header.Set(k.Spec.Proxy.NDAPIKeyHeader, apikey)
+	httpReq.Header.Set(k.Spec.Proxy.NDAPIKeySecretHeader, secret)
+
+	tr := &http.Transport{
+		DisableKeepAlives: true,
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{Timeout: timeout, Transport: tr}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		logger.WithError(err).Error("could not create transport")
+		return ""
+	}
+
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logger.WithError(err).Error("could not read response body")
+		return ""
+	}
+
+	err = json.Unmarshal(b, &tokenResp)
+
+	if err != nil {
+		logger.WithError(err).Error("could not unmarshal response body")
+		return ""
+	}
+
+	return tokenResp.JWTToken
 }
 
 func ParseRSAPublicKey(data []byte) (interface{}, error) {
@@ -741,12 +893,15 @@ func ParseRSAPublicKey(data []byte) (interface{}, error) {
 	var err error
 	pub, err = x509.ParsePKIXPublicKey(input)
 	if err != nil {
-		cert, err0 := x509.ParseCertificate(input)
-		if err0 != nil {
-			return nil, err0
+		pub, err = x509.ParsePKCS1PublicKey(input)
+		if err != nil {
+			cert, err0 := x509.ParseCertificate(input)
+			if err0 != nil {
+				return nil, err0
+			}
+			pub = cert.PublicKey
+			err = nil
 		}
-		pub = cert.PublicKey
-		err = nil
 	}
 	return pub, err
 }
@@ -754,6 +909,29 @@ func ParseRSAPublicKey(data []byte) (interface{}, error) {
 func (k *JWTMiddleware) timeValidateJWTClaims(c jwt.MapClaims) *jwt.ValidationError {
 	return timeValidateJWTClaims(c, k.Spec.JWTExpiresAtValidationSkew, k.Spec.JWTIssuedAtValidationSkew,
 		k.Spec.JWTNotBeforeValidationSkew)
+}
+
+func (k *JWTMiddleware) validateLocaluserProxyRequest(c jwt.MapClaims) error {
+	var err error
+	logger := k.Logger()
+	logger.Info("Found %s header", k.Spec.Proxy.NDProxyRequest)
+	usertype, ok := c["usertype"]
+	if ok && usertype == "local" {
+		err = errors.New("could not proxy localuser request")
+	}
+
+	return err
+}
+
+func (k *JWTMiddleware) validateCSRFHeader(c jwt.MapClaims, csrfToken string) error {
+	logger := k.Logger()
+	logger.Info("Found %s header", k.Spec.Auth.CSRFHeaderName)
+	csrfCookie, ok := c["csrf-token"]
+	if !ok || csrfCookie != csrfToken {
+		return errors.New("could not find csrf token in cookie")
+	}
+
+	return nil
 }
 
 func ctxSetJWTContextVars(s *APISpec, r *http.Request, token *jwt.Token) {

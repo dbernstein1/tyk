@@ -681,6 +681,8 @@ type APIDefinition struct {
 	// IsOAS is set to true when API has an OAS definition (created in OAS or migrated to OAS)
 	IsOAS       bool   `bson:"is_oas" json:"is_oas,omitempty"`
 	VersionName string `bson:"-" json:"-"`
+	//Cisco AppName
+	AppName          string        `bson:"app_name" json:"app_name"`
 }
 
 type AnalyticsPluginConfig struct {
@@ -705,6 +707,9 @@ type AuthConfig struct {
 	UseCookie         bool            `mapstructure:"use_cookie" bson:"use_cookie" json:"use_cookie"`
 	CookieName        string          `mapstructure:"cookie_name" bson:"cookie_name" json:"cookie_name"`
 	DisableHeader     bool            `mapstructure:"disable_header" bson:"disable_header" json:"disable_header"`
+	//Cisco Change - added CSRF support
+	CSRFHeaderName    string          `mapstructure:"csrf_header_name" bson:"csrf_header_name" json:"csrf_header_name"`
+	UseCSRFHeader     bool            `mapstructure:"use_csrf_header" bson:"use_csrf_header" json:"use_csrf_header"`
 	AuthHeaderName    string          `mapstructure:"auth_header_name" bson:"auth_header_name" json:"auth_header_name"`
 	UseCertificate    bool            `mapstructure:"use_certificate" bson:"use_certificate" json:"use_certificate"`
 	ValidateSignature bool            `mapstructure:"validate_signature" bson:"validate_signature" json:"validate_signature"`
@@ -745,8 +750,22 @@ type RequestSigningMeta struct {
 }
 
 type ProxyConfig struct {
-	PreserveHostHeader          bool                          `bson:"preserve_host_header" json:"preserve_host_header"`
-	ListenPath                  string                        `bson:"listen_path" json:"listen_path"`
+	PreserveHostHeader bool `bson:"preserve_host_header" json:"preserve_host_header"`
+	//Cisco - enable host re-write from header
+	UpdateHostHeader string `bson:"update_host_header" json:"update_host_header"`
+	//inject this header for all proxied request
+	NDProxyRequest string `bson:"nd_proxy_request" json:"nd_proxy_request"`
+	//Cisco - read proxy timeout value from header
+	NDProxyTimeoutHeader string `bson:"nd_proxy_timeout_header" json:"nd_proxy_timeout_header"`
+	//Cisco - API Key Header
+	NDAPIKeyHeader string `bson:"nd_apikey_header" json:"nd_apikey_header"`
+	//Cisco - API Key Username header
+	NDAPIKeyUsernameHeader string `bson:"nd_apikey_username_header" json:"nd_apikey_username_header"`
+	//Cisco - API Key Secret header
+	NDAPIKeySecretHeader string `bson:"nd_apikey_secret_header" json:"nd_apikey_secret_header"`
+	ListenPath           string `bson:"listen_path" json:"listen_path"`
+	//Cisco custom RBAC Role
+	Roles                       []string                      `bson:"roles" json:"roles"`
 	TargetURL                   string                        `bson:"target_url" json:"target_url"`
 	DisableStripSlash           bool                          `bson:"disable_strip_slash" json:"disable_strip_slash"`
 	StripListenPath             bool                          `bson:"strip_listen_path" json:"strip_listen_path"`
@@ -762,6 +781,9 @@ type ProxyConfig struct {
 		SSLMaxVersion           uint16   `bson:"ssl_max_version" json:"ssl_max_version"`
 		SSLForceCommonNameCheck bool     `json:"ssl_force_common_name_check"`
 		ProxyURL                string   `bson:"proxy_url" json:"proxy_url"`
+		//Cisco SSL RootCA check
+		SSLForceRootCACheck     bool   `bson:"ssl_force_rootca_check" json:"ssl_force_rootca_check"`
+		SSLRootCACert           string `bson:"ssl_rootca_cert" json:"ssl_rootca_cert"`
 	} `bson:"transport" json:"transport"`
 }
 

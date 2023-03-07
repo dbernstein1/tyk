@@ -472,6 +472,13 @@ func (gw *Gateway) syncAPISpecs() (int, error) {
 		if err != nil {
 			return 0, err
 		}
+	} else if config.Global().UseRedisDBAppConfig {
+		mainLog.Debug("Using Redis Configuration")
+		var err error
+		s, err = loader.FromRedis(config.Global().RedisDBAppConfOptions)
+		if err != nil {
+			return 0, err
+		}
 	} else {
 		s = loader.FromDir(gw.GetConfig().AppPath)
 	}
@@ -624,6 +631,19 @@ func (gw *Gateway) loadControlAPIEndpoints(muxer *mux.Router) {
 	// set up main API handlers
 	r.HandleFunc("/reload/group", gw.groupResetHandler).Methods("GET")
 	r.HandleFunc("/reload", gw.resetHandler(nil)).Methods("GET")
+	r.HandleFunc("/hotreload", hotReloadHandler).Methods("GET")
+	r.HandleFunc("/health", healthHandler).Methods("GET")
+
+	if config.Global().UseRedisDBAppConfig == true {
+		r.HandleFunc("/api", apiLoader).Methods("GET", "POST")
+		r.HandleFunc("/api/{service}", apiLoader).Methods("DELETE")
+		r.HandleFunc("/api/{service}/{apiName}", apiLoader).Methods("GET", "DELETE")
+
+		r.HandleFunc("/key", keyLoader).Methods("GET", "POST")
+		r.HandleFunc("/key/{appName}", keyLoader).Methods("GET")
+		r.HandleFunc("/key/{appName}/{kid}", keyLoader).Methods("GET", "DELETE")
+		r.HandleFunc("/key/refresh/{appName}", keyLoader).Methods("POST")
+	}
 
 	if !gw.isRPCMode() {
 		versionsHandler := NewVersionHandler(gw.getAPIDefinition)
