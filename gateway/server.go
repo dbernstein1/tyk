@@ -478,7 +478,14 @@ func (gw *Gateway) syncAPISpecs() (int, error) {
 		if err != nil {
 			return 0, err
 		}
-	} else {
+	} else if gw.GetConfig().UseRedisDBAppConfig { // Cisco Change
+		mainLog.Debug("Using Redis Configuration")
+		var err error
+		gw.apiSpecs, err = loader.FromRedis(gw.GetConfig().RedisDBAppConfOptions)
+		if err != nil {
+			return 0, err
+		}
+	}  else {
 		s = loader.FromDir(gw.GetConfig().AppPath)
 	}
 
@@ -632,6 +639,14 @@ func (gw *Gateway) loadControlAPIEndpoints(muxer *mux.Router) {
 	r.HandleFunc("/reload", gw.resetHandler(nil)).Methods("GET")
 	// Cisco Change
 	r.HandleFunc("/hotreload", gw.hotReloadHandler).Methods("GET")
+
+	// Cisco Change
+	if gw.GetConfig().UseRedisDBAppConfig {
+		r.HandleFunc("/api", gw.apiLoader).Methods("GET", "POST")
+		r.HandleFunc("/api/{service}", gw.apiLoader).Methods("DELETE")
+		r.HandleFunc("/api/{service}/{apiName}", gw.apiLoader).Methods("GET", "DELETE")
+		r.HandleFunc("/key/refresh", gw.apiLoader).Methods("POST")
+	}
 
 	if !gw.isRPCMode() {
 		versionsHandler := NewVersionHandler(gw.getAPIDefinition)
