@@ -101,6 +101,15 @@ type DBAppConfOptionsConfig struct {
 	Tags []string `json:"tags"`
 }
 
+// Cisco Change
+type RedisDBAppConfOptionsConfig struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	DB       int    `json:"db"`
+	Password string `json:"password"`
+	PoolSize int    `json:"pool_size"`
+}
+
 type StorageOptionsConf struct {
 	// This should be set to `redis` (lowercase)
 	Type string `json:"type"`
@@ -973,6 +982,11 @@ type Config struct {
 	SessionLifetimeRespectsKeyExpiration bool `bson:"session_lifetime_respects_key_expiration" json:"session_lifetime_respects_key_expiration"`
 	// global session lifetime, in seconds.
 	GlobalSessionLifetime int64 `bson:"global_session_lifetime" json:"global_session_lifetime"`
+
+	// Cisco Change
+	// Cisco - Redis DB Api Store
+	UseRedisDBAppConfig   bool                        `json:"use_redis_db_app_configs"`
+	RedisDBAppConfOptions RedisDBAppConfOptionsConfig `json:"redis_db_app_conf_options"`
 
 	// This section enables the use of the KV capabilities to substitute configuration values.
 	// See more details https://tyk.io/docs/tyk-configuration-reference/kv-store/
