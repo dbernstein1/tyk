@@ -154,7 +154,7 @@ func (gw *Gateway) createMiddleware(actualMW TykMiddleware) func(http.Handler) h
 
 					var redirectUrl = "https://" + r.Host + gw.GetConfig().RedirectURL
 					mw.Logger().WithError(err).WithField("code", errCode).WithField("Redirect URL", redirectUrl).Error("JWT Error. Redirecting..")
-
+					
 					http.Redirect(w, r, redirectUrl, http.StatusFound)
 					return
 				}
