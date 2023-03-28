@@ -761,6 +761,9 @@ type ProxyConfig struct {
 		SSLMaxVersion           uint16   `bson:"ssl_max_version" json:"ssl_max_version"`
 		SSLForceCommonNameCheck bool     `json:"ssl_force_common_name_check"`
 		ProxyURL                string   `bson:"proxy_url" json:"proxy_url"`
+		// Cisco Change - SSL RootCA check
+		SSLForceRootCACheck     bool   `bson:"ssl_force_rootca_check" json:"ssl_force_rootca_check"`
+		SSLRootCACert           string `bson:"ssl_rootca_cert" json:"ssl_rootca_cert"`
 	} `bson:"transport" json:"transport"`
 }
 
