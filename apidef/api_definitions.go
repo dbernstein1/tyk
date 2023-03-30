@@ -581,6 +581,8 @@ type APIDefinition struct {
 	ExternalOAuth       ExternalOAuth `bson:"external_oauth" json:"external_oauth"`
 	UseOpenID           bool          `bson:"use_openid" json:"use_openid"`
 	OpenIDOptions       OpenIDOptions `bson:"openid_options" json:"openid_options"`
+	// Cisco Change - AppName
+	AppName          string        `bson:"app_name" json:"app_name"`
 	Oauth2Meta          struct {
 		AllowedAccessTypes     []osin.AccessRequestType    `bson:"allowed_access_types" json:"allowed_access_types"`
 		AllowedAuthorizeTypes  []osin.AuthorizeRequestType `bson:"allowed_authorize_types" json:"allowed_authorize_types"`
