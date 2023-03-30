@@ -646,7 +646,11 @@ func (gw *Gateway) loadControlAPIEndpoints(muxer *mux.Router) {
 		r.HandleFunc("/api", gw.apiLoader).Methods("GET", "POST")
 		r.HandleFunc("/api/{service}", gw.apiLoader).Methods("DELETE")
 		r.HandleFunc("/api/{service}/{apiName}", gw.apiLoader).Methods("GET", "DELETE")
-		r.HandleFunc("/key/refresh", gw.apiLoader).Methods("POST")
+
+		r.HandleFunc("/key", gw.keyLoader).Methods("GET", "POST")
+		r.HandleFunc("/key/{appName}", gw.keyLoader).Methods("GET")
+		r.HandleFunc("/key/{appName}/{kid}", gw.keyLoader).Methods("GET", "DELETE")
+		r.HandleFunc("/key/refresh/{appName}", gw.keyLoader).Methods("POST")
 	}
 
 	if !gw.isRPCMode() {
