@@ -548,6 +548,21 @@ func (p *ReverseProxy) CheckHardTimeoutEnforced(spec *APISpec, req *http.Request
 	return false, spec.GlobalConfig.ProxyDefaultTimeout
 }
 
+// Cisco Change
+func (p *ReverseProxy) GetTimeoutFromProxyHeader(spec *APISpec, req *http.Request, inTimeout float64) float64 {
+	proxyTimeoutHeaderName := textproto.CanonicalMIMEHeaderKey(spec.Proxy.NDProxyTimeoutHeader)
+	proxyTimeout, ok := req.Header[proxyTimeoutHeaderName]
+	if ok {
+		timeout, err := strconv.ParseInt(proxyTimeout[0], 10, 32)
+		if err == nil {
+			log.Debug("setting proxy timeout value from header")
+			return float64(timeout)
+		}
+	}
+
+	return inTimeout
+}
+
 func (p *ReverseProxy) CheckHeaderInRemoveList(hdr string, spec *APISpec, req *http.Request) bool {
 	vInfo, _ := spec.Version(req)
 	versionPaths := spec.RxPaths[vInfo.Name]
@@ -1346,6 +1361,10 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 
 	if createTransport {
 		_, timeout := p.CheckHardTimeoutEnforced(p.TykAPISpec, req)
+		// Cisco Change
+		// override the connect timeout value if X-Nd-Proxy-Timeout header is set
+		timeout = p.GetTimeoutFromProxyHeader(p.TykAPISpec, req, timeout)
+
 		p.TykAPISpec.HTTPTransport = p.httpTransport(timeout, rw, req, outreq)
 		p.TykAPISpec.HTTPTransportCreated = time.Now()
 	}
