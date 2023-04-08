@@ -853,6 +853,20 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 	}
 	var roundTripper *TykRoundTripper
 
+	// Do this before we make a shallow copy
+	session := ctxGetSession(req)
+
+	outreq := new(http.Request)
+	logreq := new(http.Request)
+
+	*outreq = *req // includes shallow copies of maps, but okay
+	*logreq = *req
+	// remove context data from the copies
+	setContext(outreq, context.Background())
+	setContext(logreq, context.Background())
+
+	p.logger.Debug("Upstream request URL: ", req.URL)
+
 	p.TykAPISpec.Lock()
 
 	// create HTTP transport
@@ -869,7 +883,7 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		//override the connect timeout value if X-Nd-Proxy-Timeout header is set
 		timeout = p.GetTimeoutFromProxyHeader(p.TykAPISpec, req, timeout)
 
-		p.TykAPISpec.HTTPTransport = httpTransport(timeout, rw, req, p)
+		p.TykAPISpec.HTTPTransport = httpTransport(timeout, rw, req, outreq, p)
 		p.TykAPISpec.HTTPTransportCreated = time.Now()
 
 		p.logger.Debug("Creating new transport")
@@ -893,20 +907,6 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 			}
 		}()
 	}
-
-	// Do this before we make a shallow copy
-	session := ctxGetSession(req)
-
-	outreq := new(http.Request)
-	logreq := new(http.Request)
-
-	*outreq = *req // includes shallow copies of maps, but okay
-	*logreq = *req
-	// remove context data from the copies
-	setContext(outreq, context.Background())
-	setContext(logreq, context.Background())
-
-	p.logger.Debug("Upstream request URL: ", req.URL)
 
 	// We need to double set the context for the outbound request to reprocess the target
 	if p.TykAPISpec.URLRewriteEnabled && req.Context().Value(ctx.RetainHost) == true {
@@ -971,37 +971,14 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 
 	// set up TLS certificates for upstream if needed
 	var tlsCertificates []tls.Certificate
-	if cert := getUpstreamCertificate(outreq.URL.Host, p.TykAPISpec); cert != nil {
+	if cert := getUpstreamCertificate(outreq.Host, p.TykAPISpec); cert != nil {
 		p.logger.Debug("Found upstream mutual TLS certificate")
 		tlsCertificates = []tls.Certificate{*cert}
 	}
 
 	p.TykAPISpec.Lock()
-
-	// create HTTP transport
-	createTransport := p.TykAPISpec.HTTPTransport == nil
-
-	// Check if timeouts are set for this endpoint
-	if !createTransport && config.Global().MaxConnTime != 0 {
-		createTransport = time.Since(p.TykAPISpec.HTTPTransportCreated) > time.Duration(config.Global().MaxConnTime)*time.Second
-	}
-
-	if createTransport {
-		_, timeout := p.CheckHardTimeoutEnforced(p.TykAPISpec, req)
-		p.TykAPISpec.HTTPTransport = httpTransport(timeout, rw, req, outreq, p)
-		p.TykAPISpec.HTTPTransportCreated = time.Now()
-	}
-
-	roundTripper = p.TykAPISpec.HTTPTransport
-
-	if roundTripper.transport != nil {
-		roundTripper.transport.TLSClientConfig.Certificates = tlsCertificates
-	}
+	roundTripper.transport.TLSClientConfig.Certificates = tlsCertificates
 	p.TykAPISpec.Unlock()
-
-	if outreq.URL.Scheme == "h2c" {
-		outreq.URL.Scheme = "http"
-	}
 
 	if p.TykAPISpec.Proxy.Transport.SSLForceCommonNameCheck || config.Global().SSLForceCommonNameCheck {
 		// if proxy is enabled, add CommonName verification in verifyPeerCertificate
@@ -1144,7 +1121,7 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		}
 	}
 
-	ses := new(user.SessionState)
+	ses := user.NewSessionState()
 	if session != nil {
 		ses = session
 	}
