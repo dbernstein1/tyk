@@ -130,7 +130,6 @@ func (gw *Gateway) createMiddleware(actualMW TykMiddleware) func(http.Handler) h
 				h.ServeHTTP(w, r)
 				return
 			}
-
 			err, errCode := mw.ProcessRequest(w, r, mwConf)
 			if err != nil {
 				//redirect on missing or invalid JWT
@@ -164,7 +163,7 @@ func (gw *Gateway) createMiddleware(actualMW TykMiddleware) func(http.Handler) h
 				_, isGoPlugin := actualMW.(*GoPluginMiddleware)
 
 				handler := ErrorHandler{*mw.Base()}
-				handler.HandleError(w, r, err.Error(), errCode, true)
+				handler.HandleError(w, r, err.Error(), errCode, !isGoPlugin)
 
 				meta["error"] = err.Error()
 

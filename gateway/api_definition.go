@@ -598,7 +598,8 @@ func (a APIDefinitionLoader) FromRedis(db config.RedisDBAppConfOptionsConfig) ([
 			count++
 			apiDefinition, _ := redis.String(c.Do("GET", v))
 			def := a.ParseDefinition(strings.NewReader(apiDefinition))
-			spec := a.MakeSpec(def, nil)
+			nestDef := nestedApiDefinition{APIDefinition: &def}
+			spec := a.MakeSpec(&nestDef, nil)
 			specs = append(specs, spec)
 		}
 	}
@@ -606,7 +607,7 @@ func (a APIDefinitionLoader) FromRedis(db config.RedisDBAppConfOptionsConfig) ([
 	return specs, nil
 }
 
-func (a APIDefinitionLoader) processRPCDefinitions(apiCollection string) ([]*APISpec, error) {
+func (a APIDefinitionLoader) processRPCDefinitions(apiCollection string, gw *Gateway) ([]*APISpec, error) {
 
 	var payload []nestedApiDefinition
 	if err := json.Unmarshal([]byte(apiCollection), &payload); err != nil {

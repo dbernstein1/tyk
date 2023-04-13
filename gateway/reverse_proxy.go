@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/textproto"
 	"net/url"
 	"strconv"
@@ -1268,7 +1267,8 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		//override the connect timeout value if X-Nd-Proxy-Timeout header is set
 		timeout = p.GetTimeoutFromProxyHeader(p.TykAPISpec, req, timeout)
 
-		p.TykAPISpec.HTTPTransport = httpTransport(timeout, rw, req, p)
+		outreq := new(http.Request)
+		p.TykAPISpec.HTTPTransport = p.httpTransport(timeout, rw, req, outreq.WithContext(req.Context()))
 		p.TykAPISpec.HTTPTransportCreated = time.Now()
 
 		p.logger.Debug("Creating new transport")
@@ -2023,12 +2023,12 @@ func nopCloseResponseBody(r *http.Response) {
 	copyResponse(r)
 }
 
-func IsUpgrade(req *http.Request) (bool, string) {
+func (p *ReverseProxy) IsUpgrade(req *http.Request) (bool, string) {
 	if !p.Gw.GetConfig().HttpServerOptions.EnableWebSockets {
 		return false, ""
 	}
 
-	contentType := strings.ToLower(strings.TrimSpace(req.Header.Get(headers.Accept)))
+	contentType := strings.ToLower(strings.TrimSpace(req.Header.Get(header.Accept)))
 	if contentType == "text/event-stream" {
 		return true, ""
 	}

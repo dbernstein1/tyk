@@ -56,6 +56,7 @@ func (s *ServiceDiscovery) getServiceData(name string) (string, error) {
 	}
 
 	req.Header.Set("Connection", "close")
+	var HostCheckerClient *http.Client
 	HostCheckerClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: config.Global().ProxySSLInsecureSkipVerify,

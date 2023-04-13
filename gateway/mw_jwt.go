@@ -232,7 +232,7 @@ func (k *JWTMiddleware) getSecretToVerifySignature(r *http.Request, token *jwt.T
 	if !rawKeyExists {
 		//Cisco change to try search "sitekey-<kid>"
 		sitekey := "sitekey-" + tykId
-		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(&sitekey, r)
+		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(sitekey, r)
 		if !siteKeyExists {
 			return nil, errors.New("token invalid, key not found")
 		} else {
@@ -647,13 +647,13 @@ func (k *JWTMiddleware) processOneToOneTokenMap(r *http.Request, token *jwt.Toke
 		//Cisco change to try search "sitekey-<kid>"
 		sitekey := "sitekey-" + tykId
 		k.Logger().Debug("Using sitekey ID: ", sitekey)
-		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(&sitekey, r)
+		session, siteKeyExists := k.CheckSessionAndIdentityForValidKey(sitekey, r)
 		if !siteKeyExists {
 			k.reportLoginFailure(tykId, r)
 			return errors.New("Key not authorized"), http.StatusForbidden
 		} else {
 			k.Logger().Debug("sitekey ID found.")
-			ctxSetSession(r, &session, sitekey, false)
+			ctxSetSession(r, &session, false, false)
 			ctxSetJWTContextVars(k.Spec, r, token)
 			return nil, http.StatusOK
 		}
@@ -744,7 +744,7 @@ func (k *JWTMiddleware) ProcessRequest(w http.ResponseWriter, r *http.Request, _
 		switch k.Spec.JWTSigningMethod {
 		case RSASign, ECDSASign:
 			//key, err := ParseRSAPublicKey(val)
-			key, err := jwt.ParseRSAPublicKeyFromPEM(val)
+			key, err := jwt.ParseRSAPublicKeyFromPEM(val.([]byte))
 			if err != nil {
 				logger.WithError(err).Error("Failed to decode JWT key")
 				return nil, errors.New("Failed to decode JWT key")
