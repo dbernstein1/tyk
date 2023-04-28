@@ -171,6 +171,27 @@ func (e *ErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, errMs
 			response.Header.Add(headers.XGenerator, "Cisco Nexus Dashboard")
 		}
 
+		// Cisco Change - Add common security headers
+		// Add HSTS Header
+		w.Header().Set(headers.StrictTransportSecurity, "max-age=31536000; includeSubDomains")
+		response.Header.Set(headers.StrictTransportSecurity, "max-age=31536000; includeSubDomains")
+
+		// Add X-XSS Header
+		w.Header().Set(headers.XXSSProtection, "1; mode=block")
+		response.Header.Set(headers.XXSSProtection, "1; mode=block")
+
+		// Add X-Content-Type-Options Header
+		w.Header().Set(headers.XContentTypeOptions, "nosniff")
+		response.Header.Set(headers.XContentTypeOptions, "nosniff")
+
+		// Add X-Frame-Options Header
+		w.Header().Set(headers.XFrameOptions, "SAMEORIGIN")
+		response.Header.Set(headers.XFrameOptions, "SAMEORIGIN")
+
+		// Add Cache-Control Header
+		w.Header().Set(headers.CacheControl, "no-cache, must-revalidate, proxy-revalidate, max-age=0")
+		response.Header.Set(headers.CacheControl, "no-cache, must-revalidate, proxy-revalidate, max-age=0")
+
 		// Close connections
 		if e.Spec.GlobalConfig.CloseConnections {
 			w.Header().Add(headers.Connection, "close")
