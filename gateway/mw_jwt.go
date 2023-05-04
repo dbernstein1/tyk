@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -845,12 +846,19 @@ func (k *JWTMiddleware) validateLocaluserProxyRequest(c jwt.MapClaims) error {
 	return err
 }
 
+// validateCSRFHeader validates csrf token claim in jwt with csrf token in request header
+// request header csrf token is plain 64 character string
+// csrf token claim in jwt is a sha 256 hashed value of the plain 64 character string
 func (k *JWTMiddleware) validateCSRFHeader(c jwt.MapClaims, csrfToken string) error {
 	logger := k.Logger()
 	logger.Info("Found %s header", k.Spec.Auth.CSRFHeaderName)
 	csrfCookie, ok := c["csrf-token"]
-	if !ok || csrfCookie != csrfToken {
+	if !ok {
 		return errors.New("could not find csrf token in cookie")
+	}
+	hashedCsrfToken := sha256.Sum256([]byte(csrfToken))
+	if fmt.Sprintf("%x", hashedCsrfToken) != fmt.Sprintf("%v", csrfCookie) {
+		return errors.New("csrf token validation failed")
 	}
 
 	return nil
