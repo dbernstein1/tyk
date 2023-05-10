@@ -847,18 +847,26 @@ func (k *JWTMiddleware) validateLocaluserProxyRequest(c jwt.MapClaims) error {
 }
 
 // validateCSRFHeader validates csrf token claim in jwt with csrf token in request header
-// request header csrf token is plain 64 character string
-// csrf token claim in jwt is a sha 256 hashed value of the plain 64 character string
+// request header csrf token and csrf token claim in jwt is plain 64 character string
+// encrypted csrf token claim in jwt is a sha 256 hashed value of the plain 64 character string
+// TODO: For further releases replace csrf token with encrypted csrf token only rather than maintaining both
 func (k *JWTMiddleware) validateCSRFHeader(c jwt.MapClaims, csrfToken string) error {
 	logger := k.Logger()
 	logger.Info("Found %s header", k.Spec.Auth.CSRFHeaderName)
-	csrfCookie, ok := c["csrf-token"]
-	if !ok {
-		return errors.New("could not find csrf token in cookie")
+	// First check for encrypted csrf token claim
+	encryptedCsrfFromCookie, ok := c["new-csrf-token"]
+	if ok {
+		logger.Info("Found encrypted csrf token")
+		hashedCsrfToken := sha256.Sum256([]byte(csrfToken))
+		if fmt.Sprintf("%x", hashedCsrfToken) != fmt.Sprintf("%v", encryptedCsrfFromCookie) {
+			return errors.New("csrf token validation failed")
+		}
 	}
-	hashedCsrfToken := sha256.Sum256([]byte(csrfToken))
-	if fmt.Sprintf("%x", hashedCsrfToken) != fmt.Sprintf("%v", csrfCookie) {
-		return errors.New("csrf token validation failed")
+	// Check if unencrypted csrf token is present in JWT
+	// Validate if csrf token from header matches the one in JWT
+	csrfCookie, ok := c["csrf-token"]
+	if !ok || csrfCookie != csrfToken {
+		return errors.New("could not find csrf token in cookie")
 	}
 
 	return nil
