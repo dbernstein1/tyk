@@ -631,14 +631,14 @@ func (gw *Gateway) loadControlAPIEndpoints(muxer *mux.Router) {
 	r.HandleFunc("/health", gw.healthHandler).Methods("GET")
 
 	if gw.GetConfig().UseRedisDBAppConfig == true {
-		r.HandleFunc("/api", apiLoader).Methods("GET", "POST")
-		r.HandleFunc("/api/{service}", apiLoader).Methods("DELETE")
-		r.HandleFunc("/api/{service}/{apiName}", apiLoader).Methods("GET", "DELETE")
+		r.HandleFunc("/api", gw.apiLoader).Methods("GET", "POST")
+		r.HandleFunc("/api/{service}", gw.apiLoader).Methods("DELETE")
+		r.HandleFunc("/api/{service}/{apiName}", gw.apiLoader).Methods("GET", "DELETE")
 
-		r.HandleFunc("/key", keyLoader).Methods("GET", "POST")
-		r.HandleFunc("/key/{appName}", keyLoader).Methods("GET")
-		r.HandleFunc("/key/{appName}/{kid}", keyLoader).Methods("GET", "DELETE")
-		r.HandleFunc("/key/refresh/{appName}", keyLoader).Methods("POST")
+		r.HandleFunc("/key", gw.keyLoader).Methods("GET", "POST")
+		r.HandleFunc("/key/{appName}", gw.keyLoader).Methods("GET")
+		r.HandleFunc("/key/{appName}/{kid}", gw.keyLoader).Methods("GET", "DELETE")
+		r.HandleFunc("/key/refresh/{appName}", gw.keyLoader).Methods("POST")
 	}
 
 	if !gw.isRPCMode() {

@@ -369,10 +369,10 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 					timeout = 30
 				}
 				log.Debug("setting proxy timeout value to ", timeout, " seconds")
-				proxy.Transport = defaultProxyTransport(float64(timeout))
+				proxy.Transport = s.defaultProxyTransport(float64(timeout))
 			} else {
 				log.Debug("setting proxy timeout value to 30 seconds")
-				proxy.Transport = defaultProxyTransport(30)
+				proxy.Transport = s.defaultProxyTransport(30)
 			}
 			log.Debug("Start update_host_header proxy")
 			proxy.ServeHTTP(w, r)
@@ -415,7 +415,7 @@ func (s *SuccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *http
 	return nil
 }
 
-func defaultProxyTransport(dialerTimeout float64) http.RoundTripper {
+func (s *SuccessHandler) defaultProxyTransport(dialerTimeout float64) http.RoundTripper {
 	log.Debug("defaultProxyTransport dialerTimeout: ", dialerTimeout)
 	timeout := 30.0
 	if dialerTimeout > 0 {
@@ -429,8 +429,8 @@ func defaultProxyTransport(dialerTimeout float64) http.RoundTripper {
 		DualStack: true,
 	}
 	dialContextFunc := dialer.DialContext
-	if dnsCacheManager.IsCacheEnabled() {
-		dialContextFunc = dnsCacheManager.WrapDialer(dialer)
+	if s.Gw.dnsCacheManager.IsCacheEnabled() {
+		dialContextFunc = s.Gw.dnsCacheManager.WrapDialer(dialer)
 	}
 
 	return &http.Transport{

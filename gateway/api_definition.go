@@ -599,7 +599,8 @@ func (a APIDefinitionLoader) FromRedis(db config.RedisDBAppConfOptionsConfig) ([
 			count++
 			apiDefinition, _ := redis.String(c.Do("GET", v))
 			def := a.ParseDefinition(strings.NewReader(apiDefinition))
-			spec := a.MakeSpec(def, nil)
+			nestDef := nestedApiDefinition{APIDefinition: &def}
+			spec := a.MakeSpec(&nestDef, nil)
 			specs = append(specs, spec)
 		}
 	}

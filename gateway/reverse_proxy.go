@@ -46,6 +46,7 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/TykTechnologies/tyk/apidef"
+	"github.com/TykTechnologies/tyk/config"
 	"github.com/TykTechnologies/tyk/ctx"
 	"github.com/TykTechnologies/tyk/header"
 	"github.com/TykTechnologies/tyk/regexp"
@@ -401,12 +402,8 @@ type ReverseProxy struct {
 	Gw     *Gateway `json:"-"`
 }
 
-<<<<<<< HEAD
 func (p *ReverseProxy) defaultTransport(dialerTimeout float64) *http.Transport {
-=======
-func defaultTransport(dialerTimeout float64) *http.Transport {
 	log.Debug("defaultTransport dialerTimeout: ", dialerTimeout)
->>>>>>> ad043188 (set ResponseHeaderTimeout to default value)
 	timeout := 30.0
 	if dialerTimeout > 0 {
 		log.Debug("Setting timeout for outbound request to: ", dialerTimeout)

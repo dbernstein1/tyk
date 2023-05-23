@@ -188,7 +188,7 @@ type LoadBalancingConfigData struct {
 	}
 }
 
-func keyLoader(w http.ResponseWriter, r *http.Request) {
+func (gw *Gateway) keyLoader(w http.ResponseWriter, r *http.Request) {
 	log.Info("Requesting mutex")
 	m.Lock()
 	defer m.Unlock()
@@ -265,7 +265,7 @@ func handleGetKey(appName string, kid string) (interface{}, int) {
 	return jwtKey, http.StatusOK
 }
 
-func apiLoader(w http.ResponseWriter, r *http.Request) {
+func (gw *Gateway) apiLoader(w http.ResponseWriter, r *http.Request) {
 	log.Info("Requesting mutex")
 	m.Lock()
 	defer m.Unlock()
@@ -283,15 +283,15 @@ func apiLoader(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		if apiName != "" && service != "" {
 			log.Debug("Requesting API definition for", apiID)
-			obj, code = handleGetAPI(apiID)
+			obj, code = gw.handleGetAPI(apiID, false)
 		} else {
 			log.Debug("Requesting API list")
-			obj, code = handleGetAPIList()
+			obj, code = gw.handleGetAPIList()
 		}
 	case "POST":
 		if apiName == "" && service == "" {
 			log.Debug("Creating new definition")
-			obj, code = addOrUpdateApi(r)
+			obj, code = gw.addOrUpdateApi(r)
 		} else {
 			obj, code = apiError("Can not Add/Update service specific APIs. Use /tyk/api or /tyk/key/refresh endpoint"), http.StatusBadRequest
 		}
@@ -301,7 +301,7 @@ func apiLoader(w http.ResponseWriter, r *http.Request) {
 			obj, code = apiError("Must specify an /service to delete API"), http.StatusBadRequest
 		} else if service != "" && apiName == "" {
 			log.Info("Deleting API definition for service: ", service)
-			obj, code = deleteAPIByService(service)
+			obj, code = gw.deleteAPIByService(service)
 		} else {
 			obj, code = apiError("Must specify an /service to delete API"), http.StatusBadRequest
 		}
@@ -521,7 +521,7 @@ func receivePayload(r *http.Request) ([]byte, error) {
 	return data, nil
 }
 
-func addOrUpdateApi(r *http.Request) (interface{}, int) {
+func (gw *Gateway) addOrUpdateApi(r *http.Request) (interface{}, int) {
 	log.Info("Updating/Adding API to redis")
 	c := GetRedisConn()
 	defer c.Close()
@@ -766,7 +766,7 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 
 	// Reload All APIS and process the JWT APIs
 	wg.Add(1)
-	reloadURLStructure(wg.Done)
+	gw.reloadURLStructure(wg.Done)
 	log.Info("Waiting for api reload to finish")
 	wg.Wait()
 	log.Info("API reload finished")
@@ -1181,7 +1181,7 @@ func checkRetry(ctx context.Context, resp *http.Response, err error) (bool, erro
 	return false, nil
 }
 
-func deleteAPIById(apiID string) (interface{}, int) {
+func (gw *Gateway) deleteAPIById(apiID string) (interface{}, int) {
 	var wg sync.WaitGroup
 	c := GetRedisConn()
 	defer c.Close()
@@ -1228,7 +1228,7 @@ func deleteAPIById(apiID string) (interface{}, int) {
 	}
 
 	wg.Add(1)
-	reloadURLStructure(wg.Done)
+	gw.reloadURLStructure(wg.Done)
 	log.Info("Waiting for api reload to finish")
 	wg.Wait()
 	log.Info("API reload finished")
@@ -1236,7 +1236,7 @@ func deleteAPIById(apiID string) (interface{}, int) {
 	return response, http.StatusOK
 }
 
-func deleteAPIByService(service string) (interface{}, int) {
+func (gw *Gateway) deleteAPIByService(service string) (interface{}, int) {
 	var wg sync.WaitGroup
 	var apiData string
 
@@ -1306,7 +1306,7 @@ func deleteAPIByService(service string) (interface{}, int) {
 
 	// Reload All APIS and process the JWT APIs
 	wg.Add(1)
-	reloadURLStructure(wg.Done)
+	gw.reloadURLStructure(wg.Done)
 	log.Info("Waiting for api reload to finish")
 	wg.Wait()
 	log.Info("API reload finished")

@@ -25,6 +25,7 @@ type ServiceDiscovery struct {
 	parentPath          string
 	portPath            string
 	targetPath          string
+	HostCheckerClient   *http.Client
 }
 
 func (s *ServiceDiscovery) Init(spec *apidef.ServiceDiscoveryConfiguration) {
@@ -56,13 +57,13 @@ func (s *ServiceDiscovery) getServiceData(name string) (string, error) {
 	}
 
 	req.Header.Set("Connection", "close")
-	HostCheckerClient.Transport = &http.Transport{
+	s.HostCheckerClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: config.Global().ProxySSLInsecureSkipVerify,
 		},
 	}
 
-	response, err := HostCheckerClient.Do(req)
+	response, err := s.HostCheckerClient.Do(req)
 	if err != nil {
 		return "", err
 	}
