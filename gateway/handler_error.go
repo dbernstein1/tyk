@@ -176,11 +176,11 @@ func (e *ErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, errMs
 		log.Debug("Handler_error - CanonicalMIMEHeaderKey form ", e.BaseMiddleware.Spec.Proxy.NDProxyRequest)
 		ndProxyRequest, ok := r.Header[h]
 		if ok {
-			log.Debug("Handler_error -  do not inject tyk.io header for proxy request - proxy header found ", ndProxyRequest)
+			log.Debug("Handler_error -  do not inject tyk.io or Cisco Nexus Dashboard header for proxy request - proxy header found ", ndProxyRequest)
 		} else if !e.Spec.GlobalConfig.HideGeneratorHeader {
 			//If the config option is not set or is false, add the header
-			w.Header().Add(header.XGenerator, "tyk.io")
-			response.Header.Add(header.XGenerator, "tyk.io")
+			w.Header().Add(header.XGenerator, "Cisco Nexus Dashboard")
+			response.Header.Add(header.XGenerator, "Cisco Nexus Dashboard")
 		}
 
 		// Close connections
