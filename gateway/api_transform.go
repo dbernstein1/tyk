@@ -27,7 +27,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-//nolint
+// nolint
 var (
 	TykJWTAPIKeyEndpoint        = "/tyk/keys/"
 	TykMiddlewareBundleNameHash = "c343271e0935000c0ea41f8d9822015c"
@@ -119,6 +119,7 @@ type APIDefinition struct {
 	LoadBalancingConfigData    LoadBalancingConfigData    `json:"load_balancing_config_data"`
 	SSLForceRootCACheck        bool                       `json:"ssl_force_rootca_check"`
 	AppName                    string                     `json:"app_name"`
+	CSPHeader                  string                     `json:"csp_header"`
 }
 
 // JWTDefinitions to store JWTDefinition
@@ -390,7 +391,7 @@ func deleteJWTKey(keyID string, appName string) (interface{}, int) {
 	return response, http.StatusOK
 }
 
-//On Posting JWT Key
+// On Posting JWT Key
 func updateKeys(r *http.Request) (interface{}, int) {
 	//Add key to Redis and call addOrUpdateJWTKey
 	var jwtDef JWTDefinition
@@ -569,7 +570,6 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 	}
 
 	host := os.Getenv("HOST_IP")
-
 	for service, apis := range ServApis {
 		log.Debug("Processing service: ", service)
 		for _, api := range apis {
@@ -583,7 +583,6 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 			default:
 				return apiError("Unsupported auth type. It should be either open or jwt"), http.StatusBadRequest
 			}
-
 			temp["name"] = api.Name
 			temp["api_id"] = APIID
 			temp["slug"] = APIID
@@ -622,6 +621,19 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 
 				temp["auth"].(map[string]interface {
 				})["auth_header_name"] = api.AuthCookieName
+			}
+
+			if api.CSPHeader != "" {
+				transformResponseHeaders := temp["version_data"].(map[string]interface {
+				})["versions"].(map[string]interface {
+				})["Default"].(map[string]interface {
+				})["extended_paths"].(map[string]interface {
+				})["transform_response_headers"].([]interface{})
+				for _, transformResponseHeader := range transformResponseHeaders {
+					transformResponseHeader.(map[string]interface {
+					})["add_headers"].(map[string]interface {
+					})["Content-Security-Policy"] = api.CSPHeader
+				}
 			}
 
 			// Inject middleware
@@ -792,7 +804,7 @@ func addOrUpdateApi(r *http.Request) (interface{}, int) {
 	return response, http.StatusOK
 }
 
-//to Add and Update a JWT Key
+// to Add and Update a JWT Key
 func addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 	var JWTAPIMap = make(map[string]string)
 	var tykConf map[string]interface{}
@@ -875,7 +887,7 @@ func addOrUpdateJWTKey(jwtDef JWTDefinition) error {
 	return nil
 }
 
-//TODO - appName becomes the list
+// TODO - appName becomes the list
 func addOrDeleteJWTKey(e Event, appName string) error {
 	var tykConf map[string]interface{}
 
