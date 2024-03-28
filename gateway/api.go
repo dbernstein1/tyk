@@ -3,24 +3,24 @@
 // The code below describes the Tyk Gateway API
 // Version: 2.8.0
 //
-//     Schemes: https, http
-//     Host: localhost
-//     BasePath: /tyk/
+//	Schemes: https, http
+//	Host: localhost
+//	BasePath: /tyk/
 //
-//     Consumes:
-//     - application/json
+//	Consumes:
+//	- application/json
 //
-//     Produces:
-//     - application/json
+//	Produces:
+//	- application/json
 //
-//     Security:
-//     - api_key:
+//	Security:
+//	- api_key:
 //
-//     SecurityDefinitions:
-//     api_key:
-//          type: apiKey
-//          name: X-Tyk-Authorization
-//          in: header
+//	SecurityDefinitions:
+//	api_key:
+//	     type: apiKey
+//	     name: X-Tyk-Authorization
+//	     in: header
 //
 // swagger:meta
 package gateway
@@ -1225,7 +1225,6 @@ func groupResetHandler(w http.ResponseWriter, r *http.Request) {
 // was in the URL parameters, it will block until the reload is done.
 // Otherwise, it won't block and fn will be called once the reload is
 // finished.
-//
 func resetHandler(fn func()) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var wg sync.WaitGroup
@@ -1244,6 +1243,56 @@ func resetHandler(fn func()) http.HandlerFunc {
 		wg.Wait()
 		doJSONWrite(w, http.StatusOK, apiOk(""))
 	}
+}
+
+func cspHandler(w http.ResponseWriter, r *http.Request) {
+	c := GetRedisConn()
+	defer c.Close()
+	StrictCSP := "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; base-uri 'self'; frame-ancestors 'self'; font-src 'self' data:; img-src 'self' data: alln-extcloud-storage.cisco.com; navigate-to *; worker-src 'self' blob:; connect-src 'self' wss:;"
+	QualtricsCSP := "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.qualtrics.com; style-src-elem 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; base-uri 'self'; frame-ancestors 'self'; font-src 'self' data:; img-src 'self' https://*.qualtrics.com data: alln-extcloud-storage.cisco.com; navigate-to *; worker-src 'self' blob:;frame-src 'self' https://*.qualtrics.com ; connect-src 'self' https://*.qualtrics.com wss:;"
+
+	tykConf := make(map[string]interface{})
+	tykConfFile := os.Getenv("TYK_CONF")
+	if tykConfFile == "" {
+		tykConfFile = "/pdata/tyk.conf"
+	}
+	tykb, _ := ioutil.ReadFile(tykConfFile)
+	_ = json.Unmarshal(tykb, &tykConf)
+	strict := tykConf["enforce_strict_csp"].(bool)
+	var csp string
+	if strict {
+		csp = StrictCSP
+	} else {
+		csp = QualtricsCSP
+	}
+
+	log.WithFields(logrus.Fields{
+		"strict-csp": strict,
+	}).Info("updating CSP")
+
+	apis, _ := handleGetAPIList()
+	apidefs := apis.([]*apidef.APIDefinition)
+
+	for _, api := range apidefs {
+		transformResponseHeaders := (*api).VersionData.Versions["Default"].ExtendedPaths.TransformResponseHeader
+		for _, transformResponseHeader := range transformResponseHeaders {
+			transformResponseHeader.AddHeaders["Content-Security-Policy"] = csp
+		}
+		//temp has the definition - add it to Redis
+		apiJSON, _ := json.Marshal((*api))
+
+		//Append service name while adding it to Redis for easy lookup while deleting APIs
+		_, err := c.Do("SET", (*api).APIID, apiJSON)
+		if err != nil {
+			doJSONWrite(w, http.StatusInternalServerError, "Could not add api to redis store")
+			return
+		}
+	}
+
+	log.WithFields(logrus.Fields{
+		"strict-csp": strict,
+	}).Info("updated CSP")
+	doJSONWrite(w, http.StatusOK, apiOk(""))
 }
 
 func hotReloadHandler(w http.ResponseWriter, r *http.Request) {

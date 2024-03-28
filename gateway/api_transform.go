@@ -524,6 +524,7 @@ func receivePayload(r *http.Request) ([]byte, error) {
 
 func addOrUpdateApi(r *http.Request) (interface{}, int) {
 	log.Info("Updating/Adding API to redis")
+	log.Info("daniel")
 	c := GetRedisConn()
 	defer c.Close()
 
